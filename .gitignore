@@ -1,0 +1,16 @@
+# User config, runtime state, caches and reports never belong in the repo.
+# At runtime they live in ~/.claude/bytek/; these patterns guard against
+# copies ending up in a checkout by accident.
+/config/
+/state/
+/cache/
+/reports/
+/backup/
+*.local
+*.local.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
