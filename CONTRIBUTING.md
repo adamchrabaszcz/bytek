@@ -107,6 +107,9 @@ The Linux job also runs the tests under [kcov](https://github.com/SimonKagstrom/
 - Bash 3.2 compatible (the macOS default): no associative arrays, no `mapfile`, no `${var,,}`.
 - The render path (`bytek render`) reads only local files: no network, no `jq`, as few subprocesses as possible, well under 50 ms. Anything slow (weather, music, git) runs in the background and leaves a cache file.
 - Hooks print nothing to stdout and always exit 0: some hooks' output reaches Claude's context, and a failing hook must never block a tool call.
+- Text from outside (hooks, the command line, caches written by providers) is untrusted: it goes through the control-character filter (`lib/hook-fields.jq`, `write_state`) before it can reach the terminal. New fields and new caches get the same treatment and a case in `tests/security.sh`.
+- Nothing logs prompts or file contents. The debug log goes through `lib/debug-log.jq`.
+- GitHub Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v4.4.0`); Dependabot proposes updates. Dependabot's pull requests are the one exception to "every pull request closes an issue".
 - Art and behaviour live in data files (one file per item); the engine reads them. A new face, add-on, outfit or companion should not need an engine change.
 - Optional features (macOS Shortcuts, Music) degrade cleanly when the tool isn't there.
 - jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and kcov can only count the first line of a multi-line command.

@@ -77,14 +77,17 @@ load_state() {
   done < "$1"
 }
 
-# Writes all S_<key> fields to $1 atomically (temp file + rename).
+# Writes all S_<key> fields to $1 atomically (temp file + rename). Control characters are
+# removed here too (bytek set takes text from the command line), so no value can carry
+# terminal escape sequences into the status line.
 write_state() {
   local dir=${1%/*} tmp key val
   mkdir -p "$dir" || return 1
   tmp=$(mktemp "$dir/.tmp.XXXXXX") || return 1
   for key in $STATE_KEYS; do
     eval "val=\$S_$key"
-    printf '%s=%s\n' "$key" "${val//$'\n'/ }"
+    val=${val//[$'\n\t']/ }
+    printf '%s=%s\n' "$key" "${val//[[:cntrl:]]/}"
   done > "$tmp" && mv "$tmp" "$1"
 }
 
@@ -197,6 +200,21 @@ duration() {
   if [ "$1" -lt 60 ]; then REPLY="${1}s"; else REPLY="$(( $1 / 60 ))m $(( $1 % 60 ))s"; fi
 }
 
+# Appends a trimmed copy of hook JSON $1 to hooks.log, only while ~/.claude/bytek/debug exists
+# (and jq is there): no prompts or file contents (lib/debug-log.jq), readable by the user only,
+# cut back to half when it grows past BYTEK_DEBUG_LOG_MAX bytes (default 1 MB).
+debug_log() {
+  [ -f "$BYTEK_HOME/debug" ] && command -v jq >/dev/null 2>&1 || return 0
+  (
+    umask 077
+    log="$BYTEK_HOME/hooks.log" max=${BYTEK_DEBUG_LOG_MAX:-1048576}
+    printf '%s' "$1" | jq -c -f "$BYTEK_ROOT/lib/debug-log.jq" >> "$log" || exit 0
+    if [ $(( $(wc -c < "$log") )) -gt "$max" ]; then
+      tail -c $(( max / 2 )) "$log" | sed 1d > "$log.tmp" && mv "$log.tmp" "$log"
+    fi
+  ) 2>/dev/null
+}
+
 # Maps one hook event to a state. Never prints anything: stdout from some
 # hooks (UserPromptSubmit, SessionStart) would be added to Claude's context.
 hook() {
@@ -205,13 +223,7 @@ hook() {
   json=$(cat)
   if command -v jq >/dev/null 2>&1; then
     IFS=$'\037' read -r event session tool file pattern cmd message ntype err cwd <<EOF
-$(printf '%s' "$json" | jq -r '[
-    .hook_event_name, .session_id, .tool_name,
-    (.tool_input.file_path // .tool_input.notebook_path),
-    .tool_input.pattern, .tool_input.command, .message, .notification_type,
-    (.error // (if (.tool_response | type) == "object" then .tool_response.error else null end)),
-    .cwd
-  ] | map(. // "" | tostring | gsub("[\u001f\n\r\t]"; " ")) | join("\u001f")')
+$(printf '%s' "$json" | jq -r -f "$BYTEK_ROOT/lib/hook-fields.jq")
 EOF
   else
     re='"hook_event_name"[[:space:]]*:[[:space:]]*"([A-Za-z]+)"'
@@ -221,7 +233,7 @@ EOF
     re='"tool_name"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_]+)"'
     [[ "$json" =~ $re ]] && tool=${BASH_REMATCH[1]}
   fi
-  [ -f "$BYTEK_HOME/debug" ] && printf '%s\n' "$json" >> "$BYTEK_HOME/hooks.log"
+  debug_log "$json"
 
   [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || session=default
   f="$BYTEK_HOME/state/$session"
