@@ -58,7 +58,7 @@ Breaking changes (e.g. a change to the data file or state file format) get a `!`
 
 ### Issues and pull requests
 
-**Issues** use one format:
+**Issues** use one format. The issue forms (Feature, Bug, Docs or chore; there are no blank issues) write it; when you write the body yourself (`gh issue create --body`, the API), use the same headings:
 
 ```markdown
 ### What and why
@@ -75,7 +75,7 @@ Optional. #n, when it is one step of bigger work (also add it as a sub-issue the
 ```
 
 - **Title:** plain words, no type prefix ("Rain outfit: umbrella and drops").
-- **Labels:** the area (`core`, `art`, `outfit`, `routine`, `companion`, `docs`) plus `macos` for macOS-only parts.
+- **Labels:** the kind (`enhancement`, `bug` or `chore`, set by the form) plus the area (`core`, `art`, `outfit`, `routine`, `companion`, `docs`) and `macos` for macOS-only parts.
 - No personal data in issues, code or examples: no names, locations, schedules or paths from your machine.
 
 **Pull requests** follow `.github/pull_request_template.md`: what and why, the checks you ran, and `Closes #<issue>`. The title is a Conventional Commit.
