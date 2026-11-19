@@ -17,6 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: true # bats lives in tests/bats/
       # Bytek must run on macOS's own bash 3.2, not a newer one from Homebrew.
       - name: Use the system bash 3.2 (macOS)
         if: runner.os == 'macOS'
@@ -27,7 +29,7 @@ jobs:
       - name: Scripts parse
         run: |
           bash --version | head -1
-          for f in bin/* tools/*.sh tests/*.sh; do bash -n "$f"; done
+          for f in bin/* tools/*.sh tests/run.sh tests/helpers.bash install.sh uninstall.sh; do bash -n "$f"; done
       - name: Tests
         run: tests/run.sh
       # Line coverage of the bash code, from the same tests run under kcov (Linux only).

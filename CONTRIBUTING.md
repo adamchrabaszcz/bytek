@@ -23,7 +23,13 @@ Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Editors 
 
 ### Every change has tests
 
-Every pull request adds or updates a test in `tests/` that fails without the change. Tests are plain bash scripts (`tests/<area>.sh`) that print `ok: ...` and exit 0, or print `FAIL ...` lines and exit 1. `tests/run.sh` runs them all.
+Every pull request adds or updates a test in `tests/` that fails without the change. Tests use [bats-core](https://github.com/bats-core/bats-core) with bats-support and bats-assert, vendored as git submodules in `tests/bats/` (after cloning: `git submodule update --init`).
+
+- One file per area, `tests/<area>.bats`, starting with `load helpers`. One `@test` per behaviour, named as a sentence about it (`@test "narrow terminals cut long text"`).
+- `tests/helpers.bash` gives every test a fresh temp folder with its own `BYTEK_HOME` and settings file (`$TMP`), and helpers: `render [session]`, `hook <json>`, `assert_state <session> <field> <value>`, `needs_jq`.
+- Use `run` and the bats-assert checks (`assert_success`, `assert_output --partial`, `assert_equal`); `run --separate-stderr` when stderr matters. A test that needs a missing tool calls `skip` with the reason.
+- **Integration tests** go through `bin/bytek` like Claude Code does. Once the engine is split into modules (`lib/*.sh`), **unit tests** load one module and call its functions directly.
+- A test can leave a note for the CI summary by writing `# <note>` to fd 3 (the speed test reports its milliseconds that way).
 
 ## Commits: Conventional Commits
 
@@ -96,9 +102,11 @@ After a release, every pull request in it and every issue those closed get the m
 ## Checks
 
 ```sh
-tests/run.sh                  # every test script in tests/
-bash -n bin/bytek             # the script parses
-/bin/bash tests/run.sh        # same, under macOS's bash 3.2 if you're on a Mac
+git submodule update --init                 # once, fetches bats
+tests/run.sh                                # every .bats file, one line per file
+tests/bats/core/bin/bats tests/hooks.bats   # one file, every test listed
+bash -n bin/bytek                           # the script parses
+/bin/bash tests/run.sh                      # under macOS's bash 3.2 if you're on a Mac
 ```
 
 CI (`.github/workflows/test.yml`) runs the same on every push to `main` and every pull request, on macOS with its own bash 3.2 and on Linux. The job summary lists each test suite with its result; the badge in the README shows the state of `main`.

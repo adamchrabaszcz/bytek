@@ -12,3 +12,7 @@ indent_size = 2
 # Markdown uses two trailing spaces for a line break.
 [*.md]
 trim_trailing_whitespace = false
+
+# Written by `git submodule`, which indents with tabs.
+[.gitmodules]
+indent_style = tab
