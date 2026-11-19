@@ -34,14 +34,16 @@ jobs:
       - name: Coverage (kcov)
         if: runner.os == 'Linux'
         run: |
+          set -o pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq kcov
-          kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh
-          tools/coverage-summary.sh coverage/kcov-merged/coverage.json "$PWD/" | tee -a "$GITHUB_STEP_SUMMARY"
+          kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh > /dev/null
+          tools/coverage-summary.sh coverage "$PWD/" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "COVERAGE_DIR=$(tools/coverage-summary.sh --report-dir coverage)" >> "$GITHUB_ENV"
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux'
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/kcov-merged/cobertura.xml
+          files: ${{ env.COVERAGE_DIR }}/cobertura.xml
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}

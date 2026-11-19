@@ -35,4 +35,22 @@ got=$("$TOOL" "$tmp/coverage.json" /work/)
 "$TOOL" "$tmp/missing.json" 2>/dev/null; code=$?
 [ "$code" -eq 2 ] || { echo "FAIL missing: expected exit 2, got $code"; fails=$((fails + 1)); }
 
+# kcov output folders: a single run lands in <script>.<hash>/, merged runs in kcov-merged/.
+mkdir -p "$tmp/single/run.sh.56ea0005" "$tmp/merged/run.sh.1" "$tmp/merged/kcov-merged" "$tmp/none"
+cp "$tmp/coverage.json" "$tmp/single/run.sh.56ea0005/"
+cp "$tmp/coverage.json" "$tmp/merged/kcov-merged/"
+printf '{"files": [], "percent_covered": "0"}' > "$tmp/merged/run.sh.1/coverage.json"
+
+got=$("$TOOL" "$tmp/single" /work/)
+[ "$got" = "$expected" ] || { printf 'FAIL single-dir: got\n%s\n' "$got"; fails=$((fails + 1)); }
+got=$("$TOOL" --report-dir "$tmp/single")
+[ "$got" = "$tmp/single/run.sh.56ea0005" ] || { echo "FAIL report-dir: got '$got'"; fails=$((fails + 1)); }
+got=$("$TOOL" --report-dir "$tmp/merged")
+[ "$got" = "$tmp/merged/kcov-merged" ] || { echo "FAIL merged-first: got '$got'"; fails=$((fails + 1)); }
+
+"$TOOL" "$tmp/none" 2>/dev/null; code=$?
+[ "$code" -eq 2 ] || { echo "FAIL no-report: expected exit 2, got $code"; fails=$((fails + 1)); }
+"$TOOL" "$tmp/merged/run.sh.1/coverage.json" 2>/dev/null; code=$?
+[ "$code" -eq 1 ] || { echo "FAIL empty-report: expected exit 1, got $code"; fails=$((fails + 1)); }
+
 if [ "$fails" -eq 0 ]; then echo "ok: coverage summary lists files and the total"; else echo "$fails failure(s)"; exit 1; fi
