@@ -1,0 +1,10 @@
+{
+  "name": "bytek",
+  "displayName": "Bytek",
+  "description": "A tiny ASCII companion for the Claude Code status line that shows what the agent is doing",
+  "author": { "name": "Bytek contributors" },
+  "homepage": "https://github.com/adamchrabaszcz/bytek",
+  "repository": "https://github.com/adamchrabaszcz/bytek",
+  "license": "MIT",
+  "keywords": ["statusline", "status line", "ascii", "companion", "hooks"]
+}

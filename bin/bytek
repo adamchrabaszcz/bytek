@@ -8,15 +8,21 @@
 #        --session ID     session to write (default: "default")
 #   bytek states                     list available states
 #   bytek hook                       Claude Code hook entry point (hook JSON on stdin)
+#   bytek setup [--hooks]            make Bytek the status line (backs up settings.json);
+#                                    --hooks also adds the hooks (installs without the plugin)
+#   bytek uninstall                  put back the original status line, remove Bytek's hooks
+#   bytek help                       this text
 #
 # Bash 3.2 compatible (the macOS default): no associative arrays, no mapfile.
 # The render path reads only local files and must stay well under 50 ms.
-# Hooks may use jq; without it they fall back to the event name only.
+# Hooks, setup and uninstall use jq; hooks without it fall back to the event name only.
 
 export LC_ALL="${BYTEK_LOCALE:-en_US.UTF-8}"
 
-BYTEK_ROOT="${BYTEK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Resolved through symlinks: ~/.claude/bytek/current points at the installed copy.
+BYTEK_ROOT="${BYTEK_ROOT:-$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 BYTEK_HOME="${BYTEK_HOME:-$HOME/.claude/bytek}"
+BYTEK_SETTINGS="${BYTEK_SETTINGS:-$HOME/.claude/settings.json}"
 SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 ANTENNA="♡"
 SPINNER="◜|◝|◞|◟"
@@ -227,6 +233,7 @@ EOF
     SessionStart)
       to idle
       S_turn_start="" S_edits="" S_files=""
+      follow_plugin_update
       find "$BYTEK_HOME/state" -type f -mtime +7 -delete 2>/dev/null ;;
     SessionEnd)
       rm -f "$f"; return 0 ;;
@@ -277,6 +284,89 @@ cmd_hook() {
   exit 0
 }
 
+# The status line runs ~/.claude/bytek/current/bin/bytek. A plugin update installs into a
+# new folder, so when the hook runs from the plugin and `current` points at another plugin
+# folder (or nowhere), move it here. A link to a checkout or a manual install is left alone.
+follow_plugin_update() {
+  local link="$BYTEK_HOME/current" target
+  [ -n "$CLAUDE_PLUGIN_ROOT" ] || return 0
+  target=$(cd -P "$link" 2>/dev/null && pwd -P)
+  if [ -z "$target" ] || { [ "$target" != "$BYTEK_ROOT" ] && case "$target" in */.claude/plugins/*) true ;; *) false ;; esac; }; then
+    mkdir -p "$BYTEK_HOME" && ln -sfn "$BYTEK_ROOT" "$link"
+  fi
+}
+
+# A status line or hook command that runs Bytek ("…/bin/bytek render", quoted or not).
+BYTEK_CMD_RE='/bin/bytek"? (render|hook)$'
+
+# Applies the jq program lib/$1 to settings.json, with jq options after it. Writes a temp
+# file first and checks it, so a failed edit leaves settings.json as it was.
+edit_settings() {
+  local program="$BYTEK_ROOT/lib/$1" tmp
+  shift
+  tmp=$(mktemp "$BYTEK_SETTINGS.XXXXXX") || return 1
+  if jq --arg bytek_re "$BYTEK_CMD_RE" "$@" -f "$program" "$BYTEK_SETTINGS" > "$tmp" \
+     && jq -e . "$tmp" >/dev/null 2>&1; then
+    # cat, not mv: settings.json may be a symlink (dotfiles) and must stay one.
+    cat "$tmp" > "$BYTEK_SETTINGS"
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+cmd_setup() {
+  local with_hooks=false bin backup original="$BYTEK_HOME/original-statusline.json"
+  [ "$1" = --hooks ] && with_hooks=true
+  command -v jq >/dev/null 2>&1 || die "setup needs jq (https://jqlang.org)"
+  mkdir -p "$BYTEK_HOME/backup" "$BYTEK_HOME/state" || die "cannot create $BYTEK_HOME"
+  ln -sfn "$BYTEK_ROOT" "$BYTEK_HOME/current" || die "cannot link $BYTEK_HOME/current"
+  bin="$BYTEK_HOME/current/bin/bytek"
+
+  mkdir -p "$(dirname "$BYTEK_SETTINGS")"
+  [ -f "$BYTEK_SETTINGS" ] || printf '{}\n' > "$BYTEK_SETTINGS"
+  jq -e 'type == "object"' "$BYTEK_SETTINGS" >/dev/null 2>&1 || die "$BYTEK_SETTINGS is not a JSON object; not touching it"
+  backup="$BYTEK_HOME/backup/settings.json.$(date +%Y%m%d-%H%M%S)"
+  cp -p "$BYTEK_SETTINGS" "$backup" || die "cannot back up $BYTEK_SETTINGS"
+
+  # Remember the status line Bytek replaces, once, and never Bytek's own.
+  if [ ! -f "$original" ]; then
+    jq --arg bytek_re "$BYTEK_CMD_RE" -f "$BYTEK_ROOT/lib/original-statusline.jq" "$BYTEK_SETTINGS" \
+      > "$original" || { rm -f "$original"; die "cannot write $original"; }
+  fi
+
+  edit_settings setup.jq --arg render "\"$bin\" render" --arg hook "\"$bin\" hook" \
+    --argjson with_hooks "$with_hooks" --slurpfile plugin "$BYTEK_ROOT/hooks/hooks.json" \
+    || die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
+
+  printf 'Bytek is your status line now.\n'
+  printf '  settings backup: %s\n' "$backup"
+  if [ "$(cat "$original")" != null ]; then
+    printf '  your previous status line is saved in %s and comes back with: bytek uninstall\n' "$original"
+  fi
+  $with_hooks && printf '  hooks added to %s\n' "$BYTEK_SETTINGS"
+  return 0
+}
+
+cmd_uninstall() {
+  local original="$BYTEK_HOME/original-statusline.json" saved=null backup
+  command -v jq >/dev/null 2>&1 || die "uninstall needs jq (https://jqlang.org)"
+  [ -f "$BYTEK_SETTINGS" ] || { echo "Nothing to do: no $BYTEK_SETTINGS"; return 0; }
+  [ -s "$original" ] && saved=$(cat "$original")
+  mkdir -p "$BYTEK_HOME/backup"
+  backup="$BYTEK_HOME/backup/settings.json.$(date +%Y%m%d-%H%M%S).before-uninstall"
+  cp -p "$BYTEK_SETTINGS" "$backup" || die "cannot back up $BYTEK_SETTINGS"
+
+  edit_settings uninstall.jq --argjson saved "$saved" \
+    || die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
+  rm -f "$original" "$BYTEK_HOME/current"
+  printf 'Bytek is off. Settings backup: %s\n' "$backup"
+  printf 'Your config and state stay in %s (delete it to remove everything).\n' "$BYTEK_HOME"
+}
+
+usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
+
 cmd_states() {
   local f
   for f in "$BYTEK_ROOT"/faces/*; do printf '%s\n' "${f##*/}"; done
@@ -287,5 +377,8 @@ case "${1:-}" in
   set)    shift; cmd_set "$@" ;;
   states) cmd_states ;;
   hook)   cmd_hook ;;
-  *)      sed -n '2,11s/^# \{0,1\}//p' "$0"; exit 1 ;;
+  setup)  shift; cmd_setup "$@" ;;
+  uninstall) cmd_uninstall ;;
+  help|-h|--help) usage ;;
+  *)      usage; exit 1 ;;
 esac
