@@ -82,7 +82,7 @@ Optional. #n, when it is one step of bigger work (also add it as a sub-issue the
 
 `.github/workflows/format.yml` checks both. An issue without "What and why" or "Done when" gets the `needs-format` label and a comment, both gone once it is fixed. A pull request without a Conventional Commit title or a `Closes #<issue>` line fails the `format / pull-request` check. The rules are in `tools/format-check.sh`, tested in `tests/format-check.sh`.
 
-**Work that takes several pull requests** is a parent issue with a sub-issue per step (GitHub's "Add sub-issue"). Each step's pull request closes its sub-issue.
+**Work that takes several pull requests** is a parent issue with a sub-issue per step (GitHub's "Add sub-issue" on the parent, or `gh api -X POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<id>`). Each step's pull request closes its sub-issue, and `.github/workflows/issues.yml` (`tools/close-parent.sh`) closes the parent when its last sub-issue is closed. Steps that come up later become new sub-issues of the same parent.
 
 ## Checks
 
