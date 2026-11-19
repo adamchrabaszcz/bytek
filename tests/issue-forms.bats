@@ -21,13 +21,13 @@ fields() {
 }
 
 @test "there are three forms, each with the four sections and a known label" {
-  local form forms=0 label
+  local form forms=0 label known=" enhancement bug chore "
   for form in "$DIR"/*.yml; do
     [ "${form##*/}" = config.yml ] && continue
     forms=$((forms + 1))
     assert_equal "$(fields "$form")" "What and why|true;Done when|true;Blast radius|false;Parent|false;"
     label=$(sed -n 's/^labels: \[\(.*\)\]$/\1/p' "$form")
-    case " enhancement bug chore " in *" $label "*) ;; *) fail "${form##*/}: unknown label '$label'" ;; esac
+    case "$known" in *" $label "*) ;; *) fail "${form##*/}: unknown label '$label'" ;; esac
   done
   assert_equal "$forms" 3
 }

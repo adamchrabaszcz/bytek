@@ -16,7 +16,7 @@ setup() {
   bytek_setup
   needs_jq
   # kcov writes numbers as strings.
-  cat > "$TMP/coverage.json" <<'EOF'
+  cat >"$TMP/coverage.json" <<'EOF'
 {
   "files": [
     {"file": "/work/tools/format-check.sh", "percent_covered": "90.00", "covered_lines": "18", "total_lines": "20"},
@@ -31,7 +31,7 @@ EOF
   mkdir -p "$TMP/single/run.sh.56ea0005" "$TMP/merged/run.sh.1" "$TMP/merged/kcov-merged" "$TMP/none"
   cp "$TMP/coverage.json" "$TMP/single/run.sh.56ea0005/"
   cp "$TMP/coverage.json" "$TMP/merged/kcov-merged/"
-  printf '{"files": [], "percent_covered": "0"}' > "$TMP/merged/run.sh.1/coverage.json"
+  printf '{"files": [], "percent_covered": "0"}' >"$TMP/merged/run.sh.1/coverage.json"
 }
 
 @test "a report becomes a table per file with the total" {

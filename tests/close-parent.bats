@@ -26,6 +26,6 @@ TOOL="$ROOT/tools/close-parent.sh"
 }
 
 @test "without REPO it prints usage and exits 2" {
-  REPO= run "$TOOL" 5
+  REPO='' run "$TOOL" 5
   assert_failure 2
 }

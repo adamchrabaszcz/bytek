@@ -6,7 +6,10 @@ set -e
 
 src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 home="${BYTEK_HOME:-$HOME/.claude/bytek}"
-command -v jq >/dev/null 2>&1 || { echo "install.sh: Bytek's setup needs jq (https://jqlang.org)" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || {
+  echo "install.sh: Bytek's setup needs jq (https://jqlang.org)" >&2
+  exit 1
+}
 
 rm -rf "$home/app.new"
 mkdir -p "$home/app.new"

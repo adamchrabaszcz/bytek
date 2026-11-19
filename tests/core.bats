@@ -10,13 +10,13 @@ assert_aligned() {
   while IFS= read -r line; do
     n=$((n + 1))
     case $n in 1) l1=$line ;; 2) l2=$line ;; 3) l3=$line ;; 4) l4=$line ;; esac
-  done <<< "$1"
-  [ "$n" -eq 4 ]               || fail "$2: expected 4 lines, got $n"
-  [ "${l1:0:4}" = "    " ]     || fail "$2: antenna not in column 5: '$l1'"
-  [ "${l1:4:1}" != " " ]       || fail "$2: antenna missing: '$l1'"
-  [ "$l2" = " ╭──┴──╮" ]       || fail "$2: box top shifted: '$l2'"
-  [ "${l3:0:3}" = " │ " ]      || fail "$2: face line start: '$l3'"
-  [ "${l3:6:2}" = " │" ]       || fail "$2: face not 3 characters: '$l3'"
+  done <<<"$1"
+  [ "$n" -eq 4 ] || fail "$2: expected 4 lines, got $n"
+  [ "${l1:0:4}" = "    " ] || fail "$2: antenna not in column 5: '$l1'"
+  [ "${l1:4:1}" != " " ] || fail "$2: antenna missing: '$l1'"
+  [ "$l2" = " ╭──┴──╮" ] || fail "$2: box top shifted: '$l2'"
+  [ "${l3:0:3}" = " │ " ] || fail "$2: face line start: '$l3'"
+  [ "${l3:6:2}" = " │" ] || fail "$2: face not 3 characters: '$l3'"
   [ "${l4:0:8}" = " ╰─┬─┬─╯" ] || fail "$2: box bottom shifted: '$l4'"
 }
 

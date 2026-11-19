@@ -8,14 +8,21 @@
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dir="${1:-$here}"
 bats="$here/bats/core/bin/bats"
-[ -x "$bats" ] || { echo "tests/run.sh: bats is missing; run: git submodule update --init" >&2; exit 2; }
+[ -x "$bats" ] || {
+  echo "tests/run.sh: bats is missing; run: git submodule update --init" >&2
+  exit 2
+}
 
 status=0
 rows=""
 for t in "$dir"/*.bats; do
   [ -f "$t" ] || continue
   name=${t##*/}
-  out=$("$bats" --tap "$t" 2>&1) && result=ok || { result=failed; status=1; }
+  if out=$("$bats" --tap "$t" 2>&1); then
+    result=ok
+  else
+    result=failed status=1
+  fi
   passed=$(printf '%s\n' "$out" | grep -E '^ok ' | grep -vc '# skip')
   skipped=$(printf '%s\n' "$out" | grep -E '^ok .*# skip' -c)
   failed=$(printf '%s\n' "$out" | grep -c '^not ok ')
@@ -35,6 +42,6 @@ if [ -n "$GITHUB_STEP_SUMMARY" ]; then
   {
     printf '### Tests on %s, bash %s\n\n' "${RUNNER_OS:-$(uname -s)}" "${BASH_VERSION%%(*}"
     printf '| File | Result | Tests | Notes |\n| --- | --- | --- | --- |\n%s\n' "$rows"
-  } >> "$GITHUB_STEP_SUMMARY"
+  } >>"$GITHUB_STEP_SUMMARY"
 fi
 exit $status

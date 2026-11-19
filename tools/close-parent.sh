@@ -10,10 +10,14 @@
 # Prints "close" when the parent should close now, otherwise why not.
 decide() {
   local number=$1 state=$2 completed=$3 total=$4
-  if [ -z "$number" ]; then echo "no parent"
-  elif [ "$state" != OPEN ]; then echo "parent #$number is already closed"
-  elif [ "$completed" != "$total" ]; then echo "parent #$number: $completed of $total sub-issues done"
-  else echo "close"
+  if [ -z "$number" ]; then
+    echo "no parent"
+  elif [ "$state" != OPEN ]; then
+    echo "parent #$number is already closed"
+  elif [ "$completed" != "$total" ]; then
+    echo "parent #$number: $completed of $total sub-issues done"
+  else
+    echo "close"
   fi
 }
 
@@ -25,7 +29,10 @@ if [ "$1" = --decide ]; then
 fi
 
 issue=$1
-[ -n "$issue" ] && [ -n "$REPO" ] || { echo "usage: REPO=owner/name tools/close-parent.sh <issue>" >&2; exit 2; }
+[ -n "$issue" ] && [ -n "$REPO" ] || {
+  echo "usage: REPO=owner/name tools/close-parent.sh <issue>" >&2
+  exit 2
+}
 
 parent=$(gh api graphql -F owner="${REPO%/*}" -F repo="${REPO#*/}" -F n="$issue" -f query='
   query($owner: String!, $repo: String!, $n: Int!) {

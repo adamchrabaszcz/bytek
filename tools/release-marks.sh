@@ -20,7 +20,10 @@ fi
 
 version=$1 previous=$2 sha=$3
 repo=$GITHUB_REPOSITORY
-[ -n "$version" ] && [ -n "$sha" ] && [ -n "$repo" ] || { echo "usage: see the header of $0" >&2; exit 2; }
+[ -n "$version" ] && [ -n "$sha" ] && [ -n "$repo" ] || {
+  echo "usage: see the header of $0" >&2
+  exit 2
+}
 set -e
 
 if [ -n "$previous" ]; then range="$previous..$sha"; else range=$sha; fi
@@ -29,6 +32,7 @@ issues=""
 for pr in $prs; do
   issues="$issues $(gh pr view "$pr" --repo "$repo" --json closingIssuesReferences -q '.closingIssuesReferences[].number')"
 done
+# shellcheck disable=SC2086 # space-separated issue numbers, split on purpose
 issues=$(printf '%s\n' $issues | sort -n -u)
 
 title="v$version"
@@ -51,4 +55,5 @@ for n in $prs $issues; do
   echo "#$n: $title"
 done
 gh api -X PATCH "repos/$repo/milestones/$milestone" -f state=closed >/dev/null
+# shellcheck disable=SC2086 # number lists, split on purpose to count them
 echo "$title: $(printf '%s\n' $prs | grep -c .) pull requests, $(printf '%s\n' $issues | grep -c .) issues"

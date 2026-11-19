@@ -21,7 +21,7 @@ refute_controls() {
   if printf '%s' "$rest" | LC_ALL=C grep -q $'[\001-\037\177]'; then
     fail "control character in output: $(printf '%s' "$rest" | od -c | head -3 | tr '\n' ' ')"
   fi
-  case "$rest" in *$'\xc2\x9b'*|*$'\xc2\x9d'*) fail "C1 control (CSI/OSC) in output" ;; esac
+  case "$rest" in *$'\xc2\x9b'* | *$'\xc2\x9d'*) fail "C1 control (CSI/OSC) in output" ;; esac
 }
 
 @test "escape sequences in a file path don't reach the terminal" {
@@ -72,6 +72,7 @@ refute_controls() {
   ! grep -q 'secret-' "$log" || fail "log holds prompt or file content: $(grep -o 'secret-[a-z]*' "$log" | sort -u | tr '\n' ' ')"
   grep -q '"hook_event_name":"PreToolUse"' "$log" || fail "log lost the event metadata"
   grep -q '"tool_response":\["file"\]' "$log" || fail "tool output should be reduced to its key names"
+  # shellcheck disable=SC2012 # ls -l is the portable way to read permissions; stat differs on macOS and Linux
   assert_equal "$(ls -l "$log" | cut -c1-10)" "-rw-------"
 }
 
@@ -79,11 +80,11 @@ refute_controls() {
   touch "$BYTEK_HOME/debug"
   local i=0 log="$BYTEK_HOME/hooks.log"
   while [ $i -lt 60 ]; do
-    printf '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"/r/%040d.ts"}}' $i \
-      | BYTEK_DEBUG_LOG_MAX=2000 "$BYTEK" hook
+    printf '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"/r/%040d.ts"}}' $i |
+      BYTEK_DEBUG_LOG_MAX=2000 "$BYTEK" hook
     i=$((i + 1))
   done
-  [ "$(( $(wc -c < "$log") ))" -le 2000 ] || fail "log grew past its 2000 byte limit"
+  [ "$(($(wc -c <"$log")))" -le 2000 ] || fail "log grew past its 2000 byte limit"
   jq -c . "$log" >/dev/null 2>&1 || fail "trimming left a broken line"
 }
 

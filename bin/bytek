@@ -25,11 +25,14 @@
 # so no character is split in half. BYTEK_LOCALE_CANDIDATES replaces the last two (for tests).
 pick_locale() {
   local own=${LC_ALL:-${LC_CTYPE:-$LANG}} candidate probe
-  case "$own" in *[Uu][Tt][Ff]-8|*[Uu][Tt][Ff]8|*[Uu][Tt][Ff]-8@*|*[Uu][Tt][Ff]8@*) ;; *) own="" ;; esac
+  case "$own" in *[Uu][Tt][Ff]-8 | *[Uu][Tt][Ff]8 | *[Uu][Tt][Ff]-8@* | *[Uu][Tt][Ff]8@*) ;; *) own="" ;; esac
   for candidate in $BYTEK_LOCALE $own ${BYTEK_LOCALE_CANDIDATES:-C.UTF-8 en_US.UTF-8}; do
     { export LC_ALL="$candidate"; } 2>/dev/null
     probe="ᴗ"
-    if [ "${#probe}" -eq 1 ]; then BYTEK_UTF8=1; return; fi
+    if [ "${#probe}" -eq 1 ]; then
+      BYTEK_UTF8=1
+      return
+    fi
   done
   { export LC_ALL=C; } 2>/dev/null
   BYTEK_UTF8=0
@@ -46,18 +49,25 @@ SPINNER="◜|◝|◞|◟"
 # Bash commands that count as running tests (extended regex, override with BYTEK_TEST_PATTERN).
 TEST_RE=${BYTEK_TEST_PATTERN:-'(^|[;&|(]|[[:space:]])(npm (run )?test|npm t|yarn (run )?test|pnpm (run )?test|bun test|npx (jest|vitest|mocha)|jest|vitest|mocha|pytest|python3? -m (pytest|unittest)|(vendor/bin/)?(phpunit|pest)|go test|cargo test|mvn.* (test|verify)|(\./)?gradlew? test|rspec|mix test|dotnet test|node --test|deno test|make (test|check)|[^[:space:]]*tests?/[^[:space:]]*\.sh)'}
 
-die() { printf 'bytek: %s\n' "$1" >&2; exit 1; }
+die() {
+  printf 'bytek: %s\n' "$1" >&2
+  exit 1
+}
 
 # Splits a "a|b|c" frame list and sets REPLY to the element for tick $2.
 # Leading spaces inside a frame are kept (used for bouncing marks).
 pick() {
   local IFS='|' n
   set -f
+  # shellcheck disable=SC2206 # splitting on IFS='|' (globbing off) is the point; no mapfile in 3.2
   local frames=($1)
   set +f
   n=${#frames[@]}
-  if [ "$n" -eq 0 ]; then REPLY=""; return; fi
-  REPLY=${frames[$(( $2 % n ))]}
+  if [ "$n" -eq 0 ]; then
+    REPLY=""
+    return
+  fi
+  REPLY=${frames[$(($2 % n))]}
 }
 
 # Reads "key: value" lines from a face file into F_frames, F_thought, F_status, F_detail.
@@ -65,14 +75,14 @@ load_face() {
   F_frames="" F_thought="" F_status="" F_detail=""
   local line key val
   while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in ''|'#'*) continue ;; esac
+    case "$line" in '' | '#'*) continue ;; esac
     key=${line%%:*}
     val=${line#*:}
     val=${val# }
     case "$key" in
-      frames|thought|status|detail) printf -v "F_$key" '%s' "$val" ;;
+      frames | thought | status | detail) printf -v "F_$key" '%s' "$val" ;;
     esac
-  done < "$1"
+  done <"$1"
 }
 
 # State file fields (one "key=value" per line), loaded into S_<key>:
@@ -91,7 +101,7 @@ load_state() {
     case " $STATE_KEYS " in
       *" $key "*) printf -v "S_$key" '%s' "$val" ;;
     esac
-  done < "$1"
+  done <"$1"
 }
 
 # Writes all S_<key> fields to $1 atomically (temp file + rename). Control characters are
@@ -105,21 +115,21 @@ write_state() {
     eval "val=\$S_$key"
     val=${val//[$'\n\t']/ }
     printf '%s=%s\n' "$key" "${val//[[:cntrl:]]/}"
-  done > "$tmp" && mv "$tmp" "$1"
+  done >"$tmp" && mv "$tmp" "$1"
 }
 
 # Sets REPLY to a 5-cell bar: "▰▰▰▱▱ 3/5" for N/M, or a sweeping cell when unknown.
 progress_bar() {
   local n=${1%/*} m=${1#*/} filled i bar=""
   if [[ "$1" =~ ^[0-9]+/[0-9]+$ ]] && [ "$m" -gt 0 ]; then
-    filled=$(( n * 5 / m ))
+    filled=$((n * 5 / m))
     for i in 0 1 2 3 4; do
       if [ "$i" -lt "$filled" ]; then bar="$bar▰"; else bar="$bar▱"; fi
     done
     REPLY="$bar $n/$m"
   else
     for i in 0 1 2 3 4; do
-      if [ "$i" -eq $(( $2 % 5 )) ]; then bar="$bar▰"; else bar="$bar▱"; fi
+      if [ "$i" -eq $(($2 % 5)) ]; then bar="$bar▰"; else bar="$bar▱"; fi
     done
     REPLY="$bar"
   fi
@@ -128,9 +138,15 @@ progress_bar() {
 # Sets REPLY to $1 cut to $2 characters, ending in "…" when cut.
 truncate_to() {
   # Without a UTF-8 locale lengths are bytes: cutting could split a character, so don't.
-  if [ -z "$2" ] || [ "$BYTEK_UTF8" != 1 ] || [ "${#1}" -le "$2" ]; then REPLY=$1; return; fi
-  if [ "$2" -le 1 ]; then REPLY=""; return; fi
-  REPLY="${1:0:$(( $2 - 1 ))}…"
+  if [ -z "$2" ] || [ "$BYTEK_UTF8" != 1 ] || [ "${#1}" -le "$2" ]; then
+    REPLY=$1
+    return
+  fi
+  if [ "$2" -le 1 ]; then
+    REPLY=""
+    return
+  fi
+  REPLY="${1:0:$(($2 - 1))}…"
 }
 
 render() {
@@ -146,32 +162,40 @@ render() {
   load_state "$state_file"
 
   # Idle or finished for long enough: Bytek falls asleep.
-  if [ -n "$S_since" ] && { [ "$S_state" = idle ] || [ "$S_state" = done ]; } \
-     && [ $(( now - S_since )) -ge "$SLEEP_AFTER" ]; then
-    S_state=sleeping S_status="" S_arg="idle for $(( (now - S_since) / 60 ))m"
+  if [ -n "$S_since" ] && { [ "$S_state" = idle ] || [ "$S_state" = "done" ]; } &&
+    [ $((now - S_since)) -ge "$SLEEP_AFTER" ]; then
+    S_state=sleeping S_status="" S_arg="idle for $(((now - S_since) / 60))m"
   fi
 
   face="$BYTEK_ROOT/faces/$S_state"
   [ -f "$face" ] || face="$BYTEK_ROOT/faces/idle"
   load_face "$face"
 
-  pick "$F_frames" "$tick";  local frame=$REPLY
-  pick "$F_thought" "$tick"; thought=$REPLY
+  pick "$F_frames" "$tick"
+  local frame=$REPLY
+  pick "$F_thought" "$tick"
+  thought=$REPLY
   status=${S_status:-$F_status}
 
   detail=${S_detail:-$F_detail}
   case "$detail" in *'{spin}'*)
-    pick "$SPINNER" "$tick"; detail=${detail//\{spin\}/$REPLY} ;;
+    pick "$SPINNER" "$tick"
+    detail=${detail//\{spin\}/$REPLY}
+    ;;
   esac
   case "$detail" in *'{progress}'*)
-    progress_bar "$S_progress" "$tick"; detail=${detail//\{progress\}/$REPLY} ;;
+    progress_bar "$S_progress" "$tick"
+    detail=${detail//\{progress\}/$REPLY}
+    ;;
   esac
   detail=${detail//\{arg\}/$S_arg}
 
   # The bot and its gaps take 10 columns; keep the text inside the terminal.
-  if [ -n "$COLUMNS" ] && [ "$COLUMNS" -gt 12 ] 2>/dev/null; then max=$(( COLUMNS - 12 )); fi
-  truncate_to "$status" "$max"; status=$REPLY
-  truncate_to "$detail" "$max"; detail=$REPLY
+  if [ -n "$COLUMNS" ] && [ "$COLUMNS" -gt 12 ] 2>/dev/null; then max=$((COLUMNS - 12)); fi
+  truncate_to "$status" "$max"
+  status=$REPLY
+  truncate_to "$detail" "$max"
+  detail=$REPLY
 
   printf '    %s%s\n' "$ANTENNA" "${thought:+ $thought}"
   printf ' ╭──┴──╮\n'
@@ -198,10 +222,22 @@ cmd_set() {
   shift
   while [ $# -gt 0 ]; do
     case "$1" in
-      --status)   S_status=$2; shift 2 ;;
-      --progress) S_progress=$2; shift 2 ;;
-      --session)  session=$2; shift 2 ;;
-      *)          S_arg=$1; shift ;;
+      --status)
+        S_status=$2
+        shift 2
+        ;;
+      --progress)
+        S_progress=$2
+        shift 2
+        ;;
+      --session)
+        session=$2
+        shift 2
+        ;;
+      *)
+        S_arg=$1
+        shift
+        ;;
     esac
   done
   [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid session id: $session"
@@ -215,7 +251,7 @@ to() { S_state=$1 S_arg=$2 S_status=$3 S_detail=$4 S_progress=""; }
 
 # Sets REPLY to "41s" or "3m 12s".
 duration() {
-  if [ "$1" -lt 60 ]; then REPLY="${1}s"; else REPLY="$(( $1 / 60 ))m $(( $1 % 60 ))s"; fi
+  if [ "$1" -lt 60 ]; then REPLY="${1}s"; else REPLY="$(($1 / 60))m $(($1 % 60))s"; fi
 }
 
 # Appends a trimmed copy of hook JSON $1 to hooks.log, only while ~/.claude/bytek/debug exists
@@ -226,9 +262,9 @@ debug_log() {
   (
     umask 077
     log="$BYTEK_HOME/hooks.log" max=${BYTEK_DEBUG_LOG_MAX:-1048576}
-    printf '%s' "$1" | jq -c -f "$BYTEK_ROOT/lib/debug-log.jq" >> "$log" || exit 0
-    if [ $(( $(wc -c < "$log") )) -gt "$max" ]; then
-      tail -c $(( max / 2 )) "$log" | sed 1d > "$log.tmp" && mv "$log.tmp" "$log"
+    printf '%s' "$1" | jq -c -f "$BYTEK_ROOT/lib/debug-log.jq" >>"$log" || exit 0
+    if [ $(($(wc -c <"$log"))) -gt "$max" ]; then
+      tail -c $((max / 2)) "$log" | sed 1d >"$log.tmp" && mv "$log.tmp" "$log"
     fi
   ) 2>/dev/null
 }
@@ -264,46 +300,67 @@ EOF
       to idle
       S_turn_start="" S_edits="" S_files=""
       follow_plugin_update
-      find "$BYTEK_HOME/state" -type f -mtime +7 -delete 2>/dev/null ;;
+      find "$BYTEK_HOME/state" -type f -mtime +7 -delete 2>/dev/null
+      ;;
     SessionEnd)
-      rm -f "$f"; return 0 ;;
+      rm -f "$f"
+      return 0
+      ;;
     UserPromptSubmit)
       to thinking
-      S_turn_start=$now S_edits=0 S_files="" ;;
+      S_turn_start=$now S_edits=0 S_files=""
+      ;;
     PreToolUse)
       case "$tool" in
-        Read)       to reading "$file" ;;
-        Grep|Glob)  to searching "$pattern" ;;
-        Edit|Write|MultiEdit|NotebookEdit)
-          S_edits=$(( ${S_edits:-0} + 1 ))
+        Read) to reading "$file" ;;
+        Grep | Glob) to searching "$pattern" ;;
+        Edit | Write | MultiEdit | NotebookEdit)
+          S_edits=$((${S_edits:-0} + 1))
           case "${S_files:-|}" in *"|$file|"*) ;; *) S_files="${S_files:-|}$file|" ;; esac
-          n=${S_files//[!|]/}; n=$(( ${#n} - 1 ))
-          if [ "$n" -gt 1 ]; then to editing "$file" "editing $n files"; else to editing "$file"; fi ;;
+          n=${S_files//[!|]/}
+          n=$((${#n} - 1))
+          if [ "$n" -gt 1 ]; then to editing "$file" "editing $n files"; else to editing "$file"; fi
+          ;;
         Bash)
-          if [[ "$cmd" =~ $TEST_RE ]]; then to testing
-          else to thinking "" "running a command" "\$ $cmd"; fi ;;
-        mcp__*)     n=${tool#mcp__}; to thinking "" "using ${n%%__*}" ;;
-        *)          to thinking "" "using $tool" ;;
-      esac ;;
+          if [[ "$cmd" =~ $TEST_RE ]]; then
+            to testing
+          else to thinking "" "running a command" "\$ $cmd"; fi
+          ;;
+        mcp__*)
+          n=${tool#mcp__}
+          to thinking "" "using ${n%%__*}"
+          ;;
+        *) to thinking "" "using $tool" ;;
+      esac
+      ;;
     PostToolUse)
-      if [ "$S_state" = testing ]; then to thinking "" "tests passed" "✓ tests passed"
-      elif [ "$S_state" = waiting ]; then to thinking; fi ;;
+      if [ "$S_state" = testing ]; then
+        to thinking "" "tests passed" "✓ tests passed"
+      elif [ "$S_state" = waiting ]; then to thinking; fi
+      ;;
     PostToolUseFailure)
-      if [ "$S_state" = testing ]; then to error "$err" "tests failed"
-      else to error "$err" "$tool failed"; fi ;;
+      if [ "$S_state" = testing ]; then
+        to error "$err" "tests failed"
+      else to error "$err" "$tool failed"; fi
+      ;;
     PermissionRequest)
-      to waiting "allow $tool${file:+ $file}${cmd:+ $cmd}?" ;;
+      to waiting "allow $tool${file:+ $file}${cmd:+ $cmd}?"
+      ;;
     PermissionDenied)
-      to thinking ;;
+      to thinking
+      ;;
     Notification)
       # "Waiting for your input" after a finished turn is not a question; keep the state.
-      case "$ntype$message" in idle_prompt*|*"waiting for your input"*) return 0 ;; esac
-      to waiting "$message" ;;
+      case "$ntype$message" in idle_prompt* | *"waiting for your input"*) return 0 ;; esac
+      to waiting "$message"
+      ;;
     Stop)
-      duration $(( now - ${S_turn_start:-$now} ))
-      if [ "${S_edits:-0}" -gt 0 ]; then to done "$S_edits changes · $REPLY"; else to done "$REPLY"; fi ;;
+      duration $((now - ${S_turn_start:-$now}))
+      if [ "${S_edits:-0}" -gt 0 ]; then to "done" "$S_edits changes · $REPLY"; else to "done" "$REPLY"; fi
+      ;;
     *)
-      return 0 ;;
+      return 0
+      ;;
   esac
   S_since=$now
   write_state "$f"
@@ -321,7 +378,7 @@ follow_plugin_update() {
   local link="$BYTEK_HOME/current" target
   [ -n "$CLAUDE_PLUGIN_ROOT" ] || return 0
   target=$(cd -P "$link" 2>/dev/null && pwd -P)
-  if [ -z "$target" ] || { [ "$target" != "$BYTEK_ROOT" ] && case "$target" in */.claude/plugins/*) true ;; *) false ;; esac; }; then
+  if [ -z "$target" ] || { [ "$target" != "$BYTEK_ROOT" ] && case "$target" in */.claude/plugins/*) true ;; *) false ;; esac } then
     mkdir -p "$BYTEK_HOME" && ln -sfn "$BYTEK_ROOT" "$link"
   fi
 }
@@ -335,10 +392,10 @@ edit_settings() {
   local program="$BYTEK_ROOT/lib/$1" tmp
   shift
   tmp=$(mktemp "$BYTEK_SETTINGS.XXXXXX") || return 1
-  if jq --arg bytek_re "$BYTEK_CMD_RE" "$@" -f "$program" "$BYTEK_SETTINGS" > "$tmp" \
-     && jq -e . "$tmp" >/dev/null 2>&1; then
+  if jq --arg bytek_re "$BYTEK_CMD_RE" "$@" -f "$program" "$BYTEK_SETTINGS" >"$tmp" &&
+    jq -e . "$tmp" >/dev/null 2>&1; then
     # cat, not mv: settings.json may be a symlink (dotfiles) and must stay one.
-    cat "$tmp" > "$BYTEK_SETTINGS"
+    cat "$tmp" >"$BYTEK_SETTINGS"
     rm -f "$tmp"
   else
     rm -f "$tmp"
@@ -355,7 +412,7 @@ cmd_setup() {
   bin="$BYTEK_HOME/current/bin/bytek"
 
   mkdir -p "$(dirname "$BYTEK_SETTINGS")"
-  [ -f "$BYTEK_SETTINGS" ] || printf '{}\n' > "$BYTEK_SETTINGS"
+  [ -f "$BYTEK_SETTINGS" ] || printf '{}\n' >"$BYTEK_SETTINGS"
   jq -e 'type == "object"' "$BYTEK_SETTINGS" >/dev/null 2>&1 || die "$BYTEK_SETTINGS is not a JSON object; not touching it"
   backup="$BYTEK_HOME/backup/settings.json.$(date +%Y%m%d-%H%M%S)"
   cp -p "$BYTEK_SETTINGS" "$backup" || die "cannot back up $BYTEK_SETTINGS"
@@ -363,12 +420,15 @@ cmd_setup() {
   # Remember the status line Bytek replaces, once, and never Bytek's own.
   if [ ! -f "$original" ]; then
     jq --arg bytek_re "$BYTEK_CMD_RE" -f "$BYTEK_ROOT/lib/original-statusline.jq" "$BYTEK_SETTINGS" \
-      > "$original" || { rm -f "$original"; die "cannot write $original"; }
+      >"$original" || {
+      rm -f "$original"
+      die "cannot write $original"
+    }
   fi
 
   edit_settings setup.jq --arg render "\"$bin\" render" --arg hook "\"$bin\" hook" \
-    --argjson with_hooks "$with_hooks" --slurpfile plugin "$BYTEK_ROOT/hooks/hooks.json" \
-    || die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
+    --argjson with_hooks "$with_hooks" --slurpfile plugin "$BYTEK_ROOT/hooks/hooks.json" ||
+    die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
 
   printf 'Bytek is your status line now.\n'
   printf '  settings backup: %s\n' "$backup"
@@ -382,14 +442,17 @@ cmd_setup() {
 cmd_uninstall() {
   local original="$BYTEK_HOME/original-statusline.json" saved=null backup
   command -v jq >/dev/null 2>&1 || die "uninstall needs jq (https://jqlang.org)"
-  [ -f "$BYTEK_SETTINGS" ] || { echo "Nothing to do: no $BYTEK_SETTINGS"; return 0; }
+  [ -f "$BYTEK_SETTINGS" ] || {
+    echo "Nothing to do: no $BYTEK_SETTINGS"
+    return 0
+  }
   [ -s "$original" ] && saved=$(cat "$original")
   mkdir -p "$BYTEK_HOME/backup"
   backup="$BYTEK_HOME/backup/settings.json.$(date +%Y%m%d-%H%M%S).before-uninstall"
   cp -p "$BYTEK_SETTINGS" "$backup" || die "cannot back up $BYTEK_SETTINGS"
 
-  edit_settings uninstall.jq --argjson saved "$saved" \
-    || die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
+  edit_settings uninstall.jq --argjson saved "$saved" ||
+    die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
   rm -f "$original" "$BYTEK_HOME/current"
   printf 'Bytek is off. Settings backup: %s\n' "$backup"
   printf 'Your config and state stay in %s (delete it to remove everything).\n' "$BYTEK_HOME"
@@ -404,12 +467,21 @@ cmd_states() {
 
 case "${1:-}" in
   render) cmd_render ;;
-  set)    shift; cmd_set "$@" ;;
+  set)
+    shift
+    cmd_set "$@"
+    ;;
   states) cmd_states ;;
-  hook)   cmd_hook ;;
-  setup)  shift; cmd_setup "$@" ;;
+  hook) cmd_hook ;;
+  setup)
+    shift
+    cmd_setup "$@"
+    ;;
   uninstall) cmd_uninstall ;;
   locale) printf '%s (utf8=%s)\n' "$LC_ALL" "$BYTEK_UTF8" ;;
-  help|-h|--help) usage ;;
-  *)      usage; exit 1 ;;
+  help | -h | --help) usage ;;
+  *)
+    usage
+    exit 1
+    ;;
 esac
