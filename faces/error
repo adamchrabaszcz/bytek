@@ -1,0 +1,5 @@
+# Something failed. Deliberately harsher face so it stands out.
+frames: x_x|X_X
+thought: !
+status: something failed
+detail: {arg}
