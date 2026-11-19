@@ -78,7 +78,9 @@ Optional. #n, when it is one step of bigger work (also add it as a sub-issue the
 - **Labels:** the kind (`enhancement`, `bug` or `chore`, set by the form) plus the area (`core`, `art`, `outfit`, `routine`, `companion`, `docs`) and `macos` for macOS-only parts.
 - No personal data in issues, code or examples: no names, locations, schedules or paths from your machine.
 
-**Pull requests** follow `.github/pull_request_template.md`: what and why, the checks you ran, and `Closes #<issue>`. The title is a Conventional Commit.
+**Pull requests** follow `.github/pull_request_template.md`: what and why, the checks you ran, and `Closes #<issue>`. The title is a Conventional Commit (`fix(core): keep the antenna in column 5`).
+
+`.github/workflows/format.yml` checks both. An issue without "What and why" or "Done when" gets the `needs-format` label and a comment, both gone once it is fixed. A pull request without a Conventional Commit title or a `Closes #<issue>` line fails the `format / pull-request` check. The rules are in `tools/format-check.sh`, tested in `tests/format-check.sh`.
 
 **Work that takes several pull requests** is a parent issue with a sub-issue per step (GitHub's "Add sub-issue"). Each step's pull request closes its sub-issue.
 
