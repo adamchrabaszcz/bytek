@@ -70,6 +70,49 @@ tmpjson=$(jq '.statusLine = {"type":"command","command":"other"}' "$BYTEK_SETTIN
 "$BYTEK" uninstall >/dev/null
 [ "$(q .statusLine.command)" = other ] || fail foreign "someone else's status line was replaced"
 
+# A failed edit (jq failing on Bytek's program) leaves settings.json as it was, with no temp files.
+real_jq=$(command -v jq)
+mkdir -p "$tmp/fakebin"
+printf '#!/bin/sh\nfor a in "$@"; do case "$a" in */lib/setup.jq|*/lib/uninstall.jq) exit 5 ;; esac; done\nexec "%s" "$@"\n' \
+  "$real_jq" > "$tmp/fakebin/jq"
+chmod +x "$tmp/fakebin/jq"
+cp "$tmp/initial.json" "$BYTEK_SETTINGS"
+out=$(PATH="$tmp/fakebin:$PATH" "$BYTEK" setup 2>&1) && fail edit-fails "setup reported success"
+case "$out" in *"could not update"*) ;; *) fail edit-fails "no error message: $out" ;; esac
+cmp -s "$tmp/initial.json" "$BYTEK_SETTINGS" || fail edit-fails "setup changed settings.json"
+"$BYTEK" setup >/dev/null
+before=$(cat "$BYTEK_SETTINGS")
+PATH="$tmp/fakebin:$PATH" "$BYTEK" uninstall >/dev/null 2>&1 && fail edit-fails "uninstall reported success"
+[ "$(cat "$BYTEK_SETTINGS")" = "$before" ] || fail edit-fails "uninstall changed settings.json"
+ls "$BYTEK_SETTINGS".?????? >/dev/null 2>&1 && fail edit-fails "temp files left next to settings.json"
+"$BYTEK" uninstall >/dev/null
+
+# A Bytek hook sharing a matcher group with the user's own: only Bytek's hook goes.
+bin_cmd="\"$BYTEK_HOME/current/bin/bytek\" hook"
+jq --arg b "$bin_cmd" '.hooks.PreToolUse[0].hooks += [{"type": "command", "command": $b}]
+  | .hooks.Stop = [{"matcher": "x"}]' "$tmp/initial.json" > "$tmp/shared.json"
+cp "$tmp/shared.json" "$BYTEK_SETTINGS"
+"$BYTEK" setup --hooks >/dev/null || fail shared "setup failed"
+[ "$(q '[.hooks.PreToolUse[].hooks[] | select(.command == "~/bin/guard")] | length')" = 1 ] || fail shared "setup lost the user's hook"
+[ "$(q '[.hooks.Stop[] | select(.matcher == "x")] | length')" = 1 ] || fail shared "setup dropped a group without hooks"
+"$BYTEK" uninstall >/dev/null || fail shared "uninstall failed"
+[ "$(q '.hooks.PreToolUse[0].hooks | map(.command)')" = "$(jq -r '.hooks.PreToolUse[0].hooks | map(.command)' "$tmp/initial.json")" ] \
+  || fail shared "uninstall should leave only the user's hook in the shared group: $(jq -c .hooks.PreToolUse "$BYTEK_SETTINGS")"
+[ "$(jq -c .hooks.Stop "$BYTEK_SETTINGS")" = '[{"matcher":"x"}]' ] \
+  || fail shared "uninstall dropped a group without hooks: $(jq -c .hooks.Stop "$BYTEK_SETTINGS")"
+
+# An empty saved status line (a setup interrupted while saving it) doesn't break uninstall.
+cp "$tmp/initial.json" "$BYTEK_SETTINGS"
+"$BYTEK" setup >/dev/null
+: > "$BYTEK_HOME/original-statusline.json"
+"$BYTEK" uninstall >/dev/null || fail empty-original "uninstall failed with an empty saved status line"
+[ "$(q 'has("statusLine")')" = false ] || fail empty-original "Bytek's status line not removed"
+
+# Uninstall without a settings file has nothing to do.
+mv "$BYTEK_SETTINGS" "$tmp/kept.json"
+"$BYTEK" uninstall | grep -q 'Nothing to do' || fail no-settings "expected 'Nothing to do'"
+mv "$tmp/kept.json" "$BYTEK_SETTINGS"
+
 # Broken settings are left alone.
 printf '{ not json' > "$BYTEK_SETTINGS"
 "$BYTEK" setup >/dev/null 2>&1 && fail broken "setup accepted invalid JSON"
@@ -103,5 +146,8 @@ same_json "$tmp/initial.json" "$BYTEK_SETTINGS" || fail uninstall.sh "settings d
 [ "$(jq -r '.plugins[0].name' "$ROOT/.claude-plugin/marketplace.json")" = bytek ] || fail plugin "marketplace.json plugin"
 grep -qF '"${CLAUDE_PLUGIN_ROOT}/bin/bytek" $ARGUMENTS' "$ROOT/commands/bytek.md" || fail plugin "/bytek command does not run the plugin's script"
 "$BYTEK" help | grep -q 'bytek setup' || fail help "help does not list setup"
+out=$("$BYTEK" nope); code=$?
+[ "$code" -eq 1 ] || fail unknown "unknown command should exit 1, got $code"
+case "$out" in *"bytek setup"*) ;; *) fail unknown "unknown command should print usage" ;; esac
 
 if [ "$fails" -eq 0 ]; then echo "ok: setup and uninstall leave settings as they were"; else echo "$fails failure(s)"; exit 1; fi

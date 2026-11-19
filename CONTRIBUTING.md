@@ -109,6 +109,7 @@ The Linux job also runs the tests under [kcov](https://github.com/SimonKagstrom/
 - Hooks print nothing to stdout and always exit 0: some hooks' output reaches Claude's context, and a failing hook must never block a tool call.
 - Art and behaviour live in data files (one file per item); the engine reads them. A new face, add-on, outfit or companion should not need an engine change.
 - Optional features (macOS Shortcuts, Music) degrade cleanly when the tool isn't there.
+- jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and kcov can only count the first line of a multi-line command.
 - Comments explain *why*, not *what*.
 
 ## Art rules

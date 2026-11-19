@@ -296,11 +296,28 @@ follow_plugin_update() {
   fi
 }
 
-# jq test for a status line or hook command that runs Bytek ("…/bin/bytek render", quoted or not).
-IS_BYTEK='test("/bin/bytek\"? (render|hook)$")'
+# A status line or hook command that runs Bytek ("…/bin/bytek render", quoted or not).
+BYTEK_CMD_RE='/bin/bytek"? (render|hook)$'
+
+# Applies the jq program lib/$1 to settings.json, with jq options after it. Writes a temp
+# file first and checks it, so a failed edit leaves settings.json as it was.
+edit_settings() {
+  local program="$BYTEK_ROOT/lib/$1" tmp
+  shift
+  tmp=$(mktemp "$BYTEK_SETTINGS.XXXXXX") || return 1
+  if jq --arg bytek_re "$BYTEK_CMD_RE" "$@" -f "$program" "$BYTEK_SETTINGS" > "$tmp" \
+     && jq -e . "$tmp" >/dev/null 2>&1; then
+    # cat, not mv: settings.json may be a symlink (dotfiles) and must stay one.
+    cat "$tmp" > "$BYTEK_SETTINGS"
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
 
 cmd_setup() {
-  local with_hooks=false bin backup original="$BYTEK_HOME/original-statusline.json" tmp
+  local with_hooks=false bin backup original="$BYTEK_HOME/original-statusline.json"
   [ "$1" = --hooks ] && with_hooks=true
   command -v jq >/dev/null 2>&1 || die "setup needs jq (https://jqlang.org)"
   mkdir -p "$BYTEK_HOME/backup" "$BYTEK_HOME/state" || die "cannot create $BYTEK_HOME"
@@ -315,26 +332,13 @@ cmd_setup() {
 
   # Remember the status line Bytek replaces, once, and never Bytek's own.
   if [ ! -f "$original" ]; then
-    jq ".statusLine // null | if . != null and ((.command // \"\") | $IS_BYTEK) then null else . end" \
-      "$BYTEK_SETTINGS" > "$original" || die "cannot write $original"
+    jq --arg bytek_re "$BYTEK_CMD_RE" -f "$BYTEK_ROOT/lib/original-statusline.jq" "$BYTEK_SETTINGS" \
+      > "$original" || { rm -f "$original"; die "cannot write $original"; }
   fi
 
-  tmp=$(mktemp "$BYTEK_SETTINGS.XXXXXX") || die "cannot write next to $BYTEK_SETTINGS"
-  if jq --arg render "\"$bin\" render" --arg hook "\"$bin\" hook" --argjson with_hooks "$with_hooks" \
-       --slurpfile plugin "$BYTEK_ROOT/hooks/hooks.json" "
-    .statusLine = {type: \"command\", command: \$render, padding: (.statusLine.padding // 0), refreshInterval: 1}
-    | if \$with_hooks then
-        (\$plugin[0].hooks | map_values(map(.hooks |= map(.command = \$hook)))) as \$ours
-        | .hooks = reduce (\$ours | to_entries[]) as \$e (.hooks // {};
-            .[\$e.key] = ((.[\$e.key] // []) | map(select(any(.hooks[]?; (.command // \"\") | $IS_BYTEK) | not))) + \$e.value)
-      else . end
-  " "$BYTEK_SETTINGS" > "$tmp" && jq -e . "$tmp" >/dev/null; then
-    cat "$tmp" > "$BYTEK_SETTINGS"
-    rm -f "$tmp"
-  else
-    rm -f "$tmp"
-    die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
-  fi
+  edit_settings setup.jq --arg render "\"$bin\" render" --arg hook "\"$bin\" hook" \
+    --argjson with_hooks "$with_hooks" --slurpfile plugin "$BYTEK_ROOT/hooks/hooks.json" \
+    || die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
 
   printf 'Bytek is your status line now.\n'
   printf '  settings backup: %s\n' "$backup"
@@ -346,32 +350,16 @@ cmd_setup() {
 }
 
 cmd_uninstall() {
-  local original="$BYTEK_HOME/original-statusline.json" saved=null backup tmp
+  local original="$BYTEK_HOME/original-statusline.json" saved=null backup
   command -v jq >/dev/null 2>&1 || die "uninstall needs jq (https://jqlang.org)"
   [ -f "$BYTEK_SETTINGS" ] || { echo "Nothing to do: no $BYTEK_SETTINGS"; return 0; }
-  [ -f "$original" ] && saved=$(cat "$original")
+  [ -s "$original" ] && saved=$(cat "$original")
   mkdir -p "$BYTEK_HOME/backup"
   backup="$BYTEK_HOME/backup/settings.json.$(date +%Y%m%d-%H%M%S).before-uninstall"
   cp -p "$BYTEK_SETTINGS" "$backup" || die "cannot back up $BYTEK_SETTINGS"
 
-  # The status line goes back only if it is still Bytek's; one set later by someone else stays.
-  tmp=$(mktemp "$BYTEK_SETTINGS.XXXXXX") || die "cannot write next to $BYTEK_SETTINGS"
-  if jq --argjson saved "$saved" "
-    if ((.statusLine.command // \"\") | $IS_BYTEK) then
-      (if \$saved == null then del(.statusLine) else .statusLine = \$saved end)
-    else . end
-    | if has(\"hooks\") then
-        .hooks |= (map_values(map(select(any(.hooks[]?; (.command // \"\") | $IS_BYTEK) | not)))
-                   | with_entries(select(.value | length > 0)))
-        | if .hooks == {} then del(.hooks) else . end
-      else . end
-  " "$BYTEK_SETTINGS" > "$tmp" && jq -e . "$tmp" >/dev/null; then
-    cat "$tmp" > "$BYTEK_SETTINGS"
-    rm -f "$tmp"
-  else
-    rm -f "$tmp"
-    die "could not update $BYTEK_SETTINGS (unchanged)"
-  fi
+  edit_settings uninstall.jq --argjson saved "$saved" \
+    || die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
   rm -f "$original" "$BYTEK_HOME/current"
   printf 'Bytek is off. Settings backup: %s\n' "$backup"
   printf 'Your config and state stay in %s (delete it to remove everything).\n' "$BYTEK_HOME"
