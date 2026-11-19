@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# Bytek: a tiny ASCII companion for the Claude Code status line.
+#
+#   bytek render                     status line entry point (status line JSON on stdin)
+#   bytek set <state> [arg] [opts]   write a state by hand (testing, demos)
+#        --status TEXT    main status text instead of the state's default
+#        --progress N/M   progress for states that show a bar
+#        --session ID     session to write (default: "default")
+#   bytek states                     list available states
+#
+# Bash 3.2 compatible (the macOS default): no associative arrays, no mapfile.
+# The render path reads only local files and must stay well under 50 ms.
+
+export LC_ALL="${BYTEK_LOCALE:-en_US.UTF-8}"
+
+BYTEK_ROOT="${BYTEK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+BYTEK_HOME="${BYTEK_HOME:-$HOME/.claude/bytek}"
+SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
+ANTENNA="♡"
+SPINNER="◜|◝|◞|◟"
+
+die() { printf 'bytek: %s\n' "$1" >&2; exit 1; }
+
+# Splits a "a|b|c" frame list and sets REPLY to the element for tick $2.
+# Leading spaces inside a frame are kept (used for bouncing marks).
+pick() {
+  local IFS='|' n
+  set -f
+  local frames=($1)
+  set +f
+  n=${#frames[@]}
+  if [ "$n" -eq 0 ]; then REPLY=""; return; fi
+  REPLY=${frames[$(( $2 % n ))]}
+}
+
+# Reads "key: value" lines from a face file into F_frames, F_thought, F_status, F_detail.
+load_face() {
+  F_frames="" F_thought="" F_status="" F_detail=""
+  local line key val
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    key=${line%%:*}
+    val=${line#*:}
+    val=${val# }
+    case "$key" in
+      frames|thought|status|detail) printf -v "F_$key" '%s' "$val" ;;
+    esac
+  done < "$1"
+}
+
+# Reads "key=value" lines from a state file into S_state, S_arg, S_status, S_progress, S_since.
+load_state() {
+  S_state="idle" S_arg="" S_status="" S_progress="" S_since=""
+  [ -f "$1" ] || return 0
+  local line key val
+  while IFS= read -r line || [ -n "$line" ]; do
+    key=${line%%=*}
+    val=${line#*=}
+    case "$key" in
+      state|arg|status|progress|since) printf -v "S_$key" '%s' "$val" ;;
+    esac
+  done < "$1"
+}
+
+# Sets REPLY to a 5-cell bar: "▰▰▰▱▱ 3/5" for N/M, or a sweeping cell when unknown.
+progress_bar() {
+  local n=${1%/*} m=${1#*/} filled i bar=""
+  if [[ "$1" =~ ^[0-9]+/[0-9]+$ ]] && [ "$m" -gt 0 ]; then
+    filled=$(( n * 5 / m ))
+    for i in 0 1 2 3 4; do
+      if [ "$i" -lt "$filled" ]; then bar="$bar▰"; else bar="$bar▱"; fi
+    done
+    REPLY="$bar $n/$m"
+  else
+    for i in 0 1 2 3 4; do
+      if [ "$i" -eq $(( $2 % 5 )) ]; then bar="$bar▰"; else bar="$bar▱"; fi
+    done
+    REPLY="$bar"
+  fi
+}
+
+# Sets REPLY to $1 cut to $2 characters, ending in "…" when cut.
+truncate_to() {
+  if [ -z "$2" ] || [ "${#1}" -le "$2" ]; then REPLY=$1; return; fi
+  if [ "$2" -le 1 ]; then REPLY=""; return; fi
+  REPLY="${1:0:$(( $2 - 1 ))}…"
+}
+
+render() {
+  local json=$1 session="default" now tick state_file face status detail thought max re
+  re='"session_id"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_-]+)"'
+  [[ "$json" =~ $re ]] && session=${BASH_REMATCH[1]}
+
+  now=${BYTEK_NOW:-$(date +%s)}
+  tick=$now
+
+  state_file="$BYTEK_HOME/state/$session"
+  [ -f "$state_file" ] || state_file="$BYTEK_HOME/state/default"
+  load_state "$state_file"
+
+  # Idle or finished for long enough: Bytek falls asleep.
+  if [ -n "$S_since" ] && { [ "$S_state" = idle ] || [ "$S_state" = done ]; } \
+     && [ $(( now - S_since )) -ge "$SLEEP_AFTER" ]; then
+    S_state=sleeping S_status="" S_arg="idle for $(( (now - S_since) / 60 ))m"
+  fi
+
+  face="$BYTEK_ROOT/faces/$S_state"
+  [ -f "$face" ] || face="$BYTEK_ROOT/faces/idle"
+  load_face "$face"
+
+  pick "$F_frames" "$tick";  local frame=$REPLY
+  pick "$F_thought" "$tick"; thought=$REPLY
+  status=${S_status:-$F_status}
+
+  detail=$F_detail
+  case "$detail" in *'{spin}'*)
+    pick "$SPINNER" "$tick"; detail=${detail//\{spin\}/$REPLY} ;;
+  esac
+  case "$detail" in *'{progress}'*)
+    progress_bar "$S_progress" "$tick"; detail=${detail//\{progress\}/$REPLY} ;;
+  esac
+  detail=${detail//\{arg\}/$S_arg}
+
+  # The bot and its gaps take 10 columns; keep the text inside the terminal.
+  if [ -n "$COLUMNS" ] && [ "$COLUMNS" -gt 12 ] 2>/dev/null; then max=$(( COLUMNS - 12 )); fi
+  truncate_to "$status" "$max"; status=$REPLY
+  truncate_to "$detail" "$max"; detail=$REPLY
+
+  printf '    %s%s\n' "$ANTENNA" "${thought:+ $thought}"
+  printf ' ╭──┴──╮\n'
+  printf ' │ %s │  %s\n' "$frame" "$status"
+  printf ' ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"
+}
+
+cmd_render() {
+  local json out
+  json=$(cat)
+  if out=$(render "$json" 2>/dev/null) && [ -n "$out" ]; then
+    printf '%s\n' "$out"
+  else
+    printf '[•ᴗ•] bytek\n'
+  fi
+}
+
+cmd_set() {
+  local state=$1 arg="" status="" progress="" session="default" dir tmp
+  [ -n "$state" ] || die "usage: bytek set <state> [arg] [--status TEXT] [--progress N/M] [--session ID]"
+  [ -f "$BYTEK_ROOT/faces/$state" ] || die "unknown state: $state (see: bytek states)"
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --status)   status=$2; shift 2 ;;
+      --progress) progress=$2; shift 2 ;;
+      --session)  session=$2; shift 2 ;;
+      *)          arg=$1; shift ;;
+    esac
+  done
+  [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid session id: $session"
+  arg=${arg//$'\n'/ } status=${status//$'\n'/ }
+
+  dir="$BYTEK_HOME/state"
+  mkdir -p "$dir" || die "cannot create $dir"
+  tmp=$(mktemp "$dir/.tmp.XXXXXX") || die "cannot write to $dir"
+  printf 'state=%s\narg=%s\nstatus=%s\nprogress=%s\nsince=%s\n' \
+    "$state" "$arg" "$status" "$progress" "${BYTEK_NOW:-$(date +%s)}" > "$tmp" \
+    && mv "$tmp" "$dir/$session"
+}
+
+cmd_states() {
+  local f
+  for f in "$BYTEK_ROOT"/faces/*; do printf '%s\n' "${f##*/}"; done
+}
+
+case "${1:-}" in
+  render) cmd_render ;;
+  set)    shift; cmd_set "$@" ;;
+  states) cmd_states ;;
+  *)      sed -n '2,10s/^# \{0,1\}//p' "$0"; exit 1 ;;
+esac
