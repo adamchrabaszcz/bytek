@@ -16,7 +16,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # Bytek must run on macOS's own bash 3.2, not a newer one from Homebrew.
       - name: Use the system bash 3.2 (macOS)
         if: runner.os == 'macOS'
@@ -42,7 +42,7 @@ jobs:
           echo "COVERAGE_DIR=$(tools/coverage-summary.sh --report-dir coverage)" >> "$GITHUB_ENV"
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           files: ${{ env.COVERAGE_DIR }}/cobertura.xml
           disable_search: true

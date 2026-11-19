@@ -1,0 +1,13 @@
+# Actions are pinned to commit SHAs (CONTRIBUTING.md, "Security"); Dependabot proposes
+# updates as pull requests that keep the pin and update the version comment.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]

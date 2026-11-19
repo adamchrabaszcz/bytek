@@ -48,6 +48,14 @@ This copies Bytek to `~/.claude/bytek/app` and adds the status line and hooks to
 
 Both put back the status line you had before (or none) and remove only Bytek's hooks; anything else in your settings stays as it is.
 
+## Debugging
+
+`touch ~/.claude/bytek/debug` makes the hooks log each event to `~/.claude/bytek/hooks.log`; `rm ~/.claude/bytek/debug` stops it. The log keeps the event's shape and metadata (event, tool, file path, command) but never your prompts, file contents or edit text, and tool output only as its key names. It is readable by you only and is cut back to half when it passes 1 MB (`BYTEK_DEBUG_LOG_MAX` in bytes changes the limit). Still: check it before attaching it to an issue.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for how to report a vulnerability.
+
 ## Status
 
 Early work in progress. The roadmap is tracked in the issues.
