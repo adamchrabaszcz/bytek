@@ -80,7 +80,7 @@ Optional. #n, when it is one step of bigger work (also add it as a sub-issue the
 
 **Pull requests** follow `.github/pull_request_template.md`: what and why, the checks you ran, and `Closes #<issue>`. The title is a Conventional Commit.
 
-**Work that takes several pull requests** is a parent issue with a sub-issue per step (GitHub's "Add sub-issue"). Each step's pull request closes its sub-issue.
+**Work that takes several pull requests** is a parent issue with a sub-issue per step (GitHub's "Add sub-issue" on the parent, or `gh api -X POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<id>`). Each step's pull request closes its sub-issue, and `.github/workflows/issues.yml` (`tools/close-parent.sh`) closes the parent when its last sub-issue is closed. Steps that come up later become new sub-issues of the same parent.
 
 ## Checks
 

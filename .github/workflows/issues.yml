@@ -1,0 +1,23 @@
+name: issues
+
+# Work that takes several pull requests is a parent issue with a sub-issue per step;
+# each pull request closes its sub-issue (Closes #n), which GitHub does by itself.
+# This closes the parent once its last sub-issue is closed (CONTRIBUTING.md).
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  close-parent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Close the parent issue when all its sub-issues are done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: tools/close-parent.sh "${{ github.event.issue.number }}"
