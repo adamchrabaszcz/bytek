@@ -59,4 +59,20 @@ prs=$(printf '%s\n' \
   "chore: plain commit" | "$MARKS" --prs | tr '\n' ' ')
 expect prs "$prs" "7 34 "
 
+# Squash merges only (how main is merged): title "(#n)" as subject, the pull request
+# description as body. A description mentioning "BREAKING CHANGE:" in passing doesn't count;
+# only a footer line that starts with it does.
+squash="$tmp/squash"
+git init -q "$squash"
+scommit() { git -C "$squash" -c user.name=t -c user.email=t@example.com -c commit.gpgsign=false commit -q --allow-empty -m "$1" -m "$2"; }
+scommit "feat(plugin): install as a plugin (#38)" $'### What and why\nPlugin.\n\nCloses #3'
+git -C "$squash" tag v0.2.0
+scommit "docs: explain setup (#40)" $'### What and why\nDocs.\n\nCloses #12'
+scommit "fix(core): keep the antenna in place (#41)" $'### What and why\nNo BREAKING CHANGE: here.\n\nCloses #13'
+expect squash-fix "$( (cd "$squash" && "$RELEASE") )" "0.2.1"
+scommit "feat!: new state format (#42)" $'### What and why\nState files change.\n\nBREAKING CHANGE: old state files are reset\n\nCloses #14'
+expect squash-major "$( (cd "$squash" && "$RELEASE") )" "1.0.0"
+prs=$(git -C "$squash" log --format=%s v0.2.0..HEAD | "$MARKS" --prs | tr '\n' ' ')
+expect squash-prs "$prs" "40 41 42 "
+
 if [ "$fails" -eq 0 ]; then echo "ok: releases bump the right version part"; else echo "$fails failure(s)"; exit 1; fi
