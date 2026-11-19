@@ -34,9 +34,13 @@ jobs:
       - name: Coverage (kcov)
         if: runner.os == 'Linux'
         run: |
+          set -o pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq kcov
-          kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh
+          kcov --version
+          kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh > /dev/null
+          find coverage -maxdepth 2 | sort | head -40
+          find coverage -name coverage.json | head -5 | xargs -I{} sh -c 'echo "== {}"; head -c 600 {}; echo'
           tools/coverage-summary.sh coverage/kcov-merged/coverage.json "$PWD/" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux'
