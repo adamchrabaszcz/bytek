@@ -1,0 +1,12 @@
+{
+  "name": "bytek",
+  "owner": { "name": "Bytek contributors", "url": "https://github.com/adamchrabaszcz/bytek" },
+  "description": "Bytek, a tiny ASCII companion for the Claude Code status line",
+  "plugins": [
+    {
+      "name": "bytek",
+      "source": "./",
+      "description": "A tiny ASCII companion for the Claude Code status line that shows what the agent is doing"
+    }
+  ]
+}
