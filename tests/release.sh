@@ -13,11 +13,15 @@ fails=0
 fail() { printf 'FAIL %s: %s\n' "$1" "$2"; fails=$((fails + 1)); }
 
 # next <last> <subject[|body]>...: one commit per argument, "|" separating subject and body.
+# (No case inside $( ): bash 3.2 can't parse it.)
 next() {
-  local last=$1 c
+  local last=$1 c subject body
   shift
-  for c in "$@"; do printf '%s\037%s\036' "${c%%|*}" "$(case $c in *'|'*) printf '%s' "${c#*|}" ;; esac)"; done \
-    | "$RELEASE" --next "$last"
+  for c in "$@"; do
+    subject=${c%%|*} body=""
+    [ "$subject" != "$c" ] && body=${c#*|}
+    printf '%s\037%s\036' "$subject" "$body"
+  done | "$RELEASE" --next "$last"
 }
 expect() { [ "$2" = "$3" ] || fail "$1" "expected '$3', got '$2'"; }
 
