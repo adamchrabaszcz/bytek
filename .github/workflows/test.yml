@@ -27,6 +27,21 @@ jobs:
       - name: Scripts parse
         run: |
           bash --version | head -1
-          for f in bin/* tests/*.sh; do bash -n "$f"; done
+          for f in bin/* tools/*.sh tests/*.sh; do bash -n "$f"; done
       - name: Tests
         run: tests/run.sh
+      # Line coverage of the bash code, from the same tests run under kcov (Linux only).
+      - name: Coverage (kcov)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kcov
+          kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh
+          tools/coverage-summary.sh coverage/kcov-merged/coverage.json "$PWD/" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        if: runner.os == 'Linux'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/kcov-merged/cobertura.xml
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
