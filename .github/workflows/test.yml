@@ -1,0 +1,32 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # Bytek must run on macOS's own bash 3.2, not a newer one from Homebrew.
+      - name: Use the system bash 3.2 (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -s /bin/bash "$RUNNER_TEMP/bin/bash"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Scripts parse
+        run: |
+          bash --version | head -1
+          for f in bin/* tests/*.sh; do bash -n "$f"; done
+      - name: Tests
+        run: tests/run.sh

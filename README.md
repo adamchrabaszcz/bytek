@@ -1,5 +1,7 @@
 # Bytek
 
+[![test](https://github.com/adamchrabaszcz/bytek/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/adamchrabaszcz/bytek/actions/workflows/test.yml)
+
 ```
     ♡
  ╭──┴──╮
