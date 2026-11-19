@@ -90,6 +90,8 @@ bash -n bin/bytek             # the script parses
 /bin/bash tests/run.sh        # same, under macOS's bash 3.2 if you're on a Mac
 ```
 
+CI (`.github/workflows/test.yml`) runs the same on every push to `main` and every pull request, on macOS with its own bash 3.2 and on Linux. The job summary lists each test suite with its result; the badge in the README shows the state of `main`.
+
 ## Code conventions
 
 - Bash 3.2 compatible (the macOS default): no associative arrays, no `mapfile`, no `${var,,}`.
