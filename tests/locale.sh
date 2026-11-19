@@ -40,6 +40,12 @@ quiet fallback
 
 got=$(clean LC_ALL=bogus.UTF-8 BYTEK_LOCALE_CANDIDATES="$works" "$BYTEK" locale)
 [ "$got" = "$works (utf8=1)" ] || fail own-missing "a missing own locale should be skipped, got '$got'"
+# Linux bash warns about a missing LC_ALL from the environment once at start-up, before any
+# script line runs; that one line is allowed, a second (from Bytek itself) is not.
+startup=$(grep -c 'setlocale: LC_ALL: cannot change locale (bogus.UTF-8)' "$tmp/err")
+[ "$startup" -le 1 ] || fail own-missing "Bytek repeated the locale warning ($startup times)"
+grep -v 'setlocale: LC_ALL: cannot change locale (bogus.UTF-8)' "$tmp/err" > "$tmp/err.rest"
+mv "$tmp/err.rest" "$tmp/err"
 quiet own-missing
 
 # No UTF-8 locale at all: Bytek still renders, says nothing, and doesn't cut text.
