@@ -1,6 +1,6 @@
 # Bytek
 
-[![test](https://github.com/adamchrabaszcz/bytek/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/adamchrabaszcz/bytek/actions/workflows/test.yml)
+[![test](https://github.com/adamchrabaszcz/bytek/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/adamchrabaszcz/bytek/actions/workflows/test.yml) [![codecov](https://codecov.io/gh/adamchrabaszcz/bytek/graph/badge.svg)](https://codecov.io/gh/adamchrabaszcz/bytek)
 
 ```
     ♡
