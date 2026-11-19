@@ -37,7 +37,8 @@ jobs:
           set -o pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq kcov
-          kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh > /dev/null
+          # kcov's tracing slows every render down; the Tests step above checks the budget.
+          BYTEK_SKIP_SPEED=1 kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh > /dev/null
           tools/coverage-summary.sh coverage "$PWD/" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "COVERAGE_DIR=$(tools/coverage-summary.sh --report-dir coverage)" >> "$GITHUB_ENV"
       - name: Upload coverage to Codecov

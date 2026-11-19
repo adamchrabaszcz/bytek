@@ -103,6 +103,8 @@ bash -n bin/bytek             # the script parses
 
 CI (`.github/workflows/test.yml`) runs the same on every push to `main` and every pull request, on macOS with its own bash 3.2 and on Linux. The job summary lists each test suite with its result; the badge in the README shows the state of `main`.
 
+The render path has a budget: 50 ms per render on average, because the status line redraws every second. `tests/speed.sh` renders every state through the real `bin/bytek` and fails above it; its result line (and so the job summary) shows the measured time per OS. `BYTEK_RENDER_BUDGET_MS` changes the budget locally, and the coverage run skips the check (`BYTEK_SKIP_SPEED=1`) because kcov slows everything down.
+
 The Linux job also runs the tests under [kcov](https://github.com/SimonKagstrom/kcov) for line coverage of `bin/` and `tools/`: a table per file in the job summary, uploaded to Codecov (coverage badge in the README, coverage diff on pull requests). To see it locally on Linux: `kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh`, then open `coverage/index.html`.
 
 ## Code conventions
