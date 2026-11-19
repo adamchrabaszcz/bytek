@@ -84,6 +84,12 @@ Optional. #n, when it is one step of bigger work (also add it as a sub-issue the
 
 **Work that takes several pull requests** is a parent issue with a sub-issue per step (GitHub's "Add sub-issue" on the parent, or `gh api -X POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<id>`). Each step's pull request closes its sub-issue, and `.github/workflows/issues.yml` (`tools/close-parent.sh`) closes the parent when its last sub-issue is closed. Steps that come up later become new sub-issues of the same parent.
 
+## Releases
+
+After CI passes on `main`, `.github/workflows/release.yml` tags the commit and publishes a GitHub release with the merged pull requests as notes, if the merge shipped something. The version follows the commit types since the last release (`tools/release.sh`): a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) → major, `feat` → minor, `fix` / `perf` → patch. `docs`, `ci`, `chore`, `test`, `refactor`, `style` and `build` make no release. So the commit type matters: it decides the version. The first release is `v0.1.0`.
+
+After a release, every pull request in it and every issue those closed get the milestone `vX.Y.Z` and a "Released in vX.Y.Z" comment (`tools/release-marks.sh`), so an issue shows which version shipped it.
+
 ## Checks
 
 ```sh
