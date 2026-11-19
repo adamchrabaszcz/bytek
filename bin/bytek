@@ -7,9 +7,11 @@
 #        --progress N/M   progress for states that show a bar
 #        --session ID     session to write (default: "default")
 #   bytek states                     list available states
+#   bytek hook                       Claude Code hook entry point (hook JSON on stdin)
 #
 # Bash 3.2 compatible (the macOS default): no associative arrays, no mapfile.
 # The render path reads only local files and must stay well under 50 ms.
+# Hooks may use jq; without it they fall back to the event name only.
 
 export LC_ALL="${BYTEK_LOCALE:-en_US.UTF-8}"
 
@@ -18,6 +20,8 @@ BYTEK_HOME="${BYTEK_HOME:-$HOME/.claude/bytek}"
 SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 ANTENNA="♡"
 SPINNER="◜|◝|◞|◟"
+# Bash commands that count as running tests (extended regex, override with BYTEK_TEST_PATTERN).
+TEST_RE=${BYTEK_TEST_PATTERN:-'(^|[;&|(]|[[:space:]])(npm (run )?test|npm t|yarn (run )?test|pnpm (run )?test|bun test|npx (jest|vitest|mocha)|jest|vitest|mocha|pytest|python3? -m (pytest|unittest)|(vendor/bin/)?(phpunit|pest)|go test|cargo test|mvn.* (test|verify)|(\./)?gradlew? test|rspec|mix test|dotnet test|node --test|deno test|make (test|check)|[^[:space:]]*tests?/[^[:space:]]*\.sh)'}
 
 die() { printf 'bytek: %s\n' "$1" >&2; exit 1; }
 
@@ -48,18 +52,34 @@ load_face() {
   done < "$1"
 }
 
-# Reads "key=value" lines from a state file into S_state, S_arg, S_status, S_progress, S_since.
+# State file fields (one "key=value" per line), loaded into S_<key>:
+#   state, arg (fills {arg}), status / detail (override the face's text),
+#   progress (N/M), since (last event), turn_start, edits, files ("|a|b|").
+STATE_KEYS="state arg status detail progress since turn_start edits files"
+
 load_state() {
-  S_state="idle" S_arg="" S_status="" S_progress="" S_since=""
+  S_state="idle" S_arg="" S_status="" S_detail="" S_progress="" S_since=""
+  S_turn_start="" S_edits="" S_files=""
   [ -f "$1" ] || return 0
   local line key val
   while IFS= read -r line || [ -n "$line" ]; do
     key=${line%%=*}
     val=${line#*=}
-    case "$key" in
-      state|arg|status|progress|since) printf -v "S_$key" '%s' "$val" ;;
+    case " $STATE_KEYS " in
+      *" $key "*) printf -v "S_$key" '%s' "$val" ;;
     esac
   done < "$1"
+}
+
+# Writes all S_<key> fields to $1 atomically (temp file + rename).
+write_state() {
+  local dir=${1%/*} tmp key val
+  mkdir -p "$dir" || return 1
+  tmp=$(mktemp "$dir/.tmp.XXXXXX") || return 1
+  for key in $STATE_KEYS; do
+    eval "val=\$S_$key"
+    printf '%s=%s\n' "$key" "${val//$'\n'/ }"
+  done > "$tmp" && mv "$tmp" "$1"
 }
 
 # Sets REPLY to a 5-cell bar: "▰▰▰▱▱ 3/5" for N/M, or a sweeping cell when unknown.
@@ -112,7 +132,7 @@ render() {
   pick "$F_thought" "$tick"; thought=$REPLY
   status=${S_status:-$F_status}
 
-  detail=$F_detail
+  detail=${S_detail:-$F_detail}
   case "$detail" in *'{spin}'*)
     pick "$SPINNER" "$tick"; detail=${detail//\{spin\}/$REPLY} ;;
   esac
@@ -143,27 +163,118 @@ cmd_render() {
 }
 
 cmd_set() {
-  local state=$1 arg="" status="" progress="" session="default" dir tmp
-  [ -n "$state" ] || die "usage: bytek set <state> [arg] [--status TEXT] [--progress N/M] [--session ID]"
-  [ -f "$BYTEK_ROOT/faces/$state" ] || die "unknown state: $state (see: bytek states)"
+  local session="default"
+  [ -n "$1" ] || die "usage: bytek set <state> [arg] [--status TEXT] [--progress N/M] [--session ID]"
+  [ -f "$BYTEK_ROOT/faces/$1" ] || die "unknown state: $1 (see: bytek states)"
+  load_state /dev/null
+  S_state=$1
   shift
   while [ $# -gt 0 ]; do
     case "$1" in
-      --status)   status=$2; shift 2 ;;
-      --progress) progress=$2; shift 2 ;;
+      --status)   S_status=$2; shift 2 ;;
+      --progress) S_progress=$2; shift 2 ;;
       --session)  session=$2; shift 2 ;;
-      *)          arg=$1; shift ;;
+      *)          S_arg=$1; shift ;;
     esac
   done
   [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid session id: $session"
-  arg=${arg//$'\n'/ } status=${status//$'\n'/ }
+  S_since=${BYTEK_NOW:-$(date +%s)}
+  write_state "$BYTEK_HOME/state/$session" || die "cannot write to $BYTEK_HOME/state"
+}
 
-  dir="$BYTEK_HOME/state"
-  mkdir -p "$dir" || die "cannot create $dir"
-  tmp=$(mktemp "$dir/.tmp.XXXXXX") || die "cannot write to $dir"
-  printf 'state=%s\narg=%s\nstatus=%s\nprogress=%s\nsince=%s\n' \
-    "$state" "$arg" "$status" "$progress" "${BYTEK_NOW:-$(date +%s)}" > "$tmp" \
-    && mv "$tmp" "$dir/$session"
+# Switches to a new state and clears the previous state's text.
+# Usage: to <state> [arg] [status] [detail]
+to() { S_state=$1 S_arg=$2 S_status=$3 S_detail=$4 S_progress=""; }
+
+# Sets REPLY to "41s" or "3m 12s".
+duration() {
+  if [ "$1" -lt 60 ]; then REPLY="${1}s"; else REPLY="$(( $1 / 60 ))m $(( $1 % 60 ))s"; fi
+}
+
+# Maps one hook event to a state. Never prints anything: stdout from some
+# hooks (UserPromptSubmit, SessionStart) would be added to Claude's context.
+hook() {
+  local json event="" session="" tool="" file="" pattern="" cmd="" message="" ntype="" err="" cwd=""
+  local f now n re
+  json=$(cat)
+  if command -v jq >/dev/null 2>&1; then
+    IFS=$'\037' read -r event session tool file pattern cmd message ntype err cwd <<EOF
+$(printf '%s' "$json" | jq -r '[
+    .hook_event_name, .session_id, .tool_name,
+    (.tool_input.file_path // .tool_input.notebook_path),
+    .tool_input.pattern, .tool_input.command, .message, .notification_type,
+    (.error // (if (.tool_response | type) == "object" then .tool_response.error else null end)),
+    .cwd
+  ] | map(. // "" | tostring | gsub("[\u001f\n\r\t]"; " ")) | join("\u001f")')
+EOF
+  else
+    re='"hook_event_name"[[:space:]]*:[[:space:]]*"([A-Za-z]+)"'
+    [[ "$json" =~ $re ]] && event=${BASH_REMATCH[1]}
+    re='"session_id"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_-]+)"'
+    [[ "$json" =~ $re ]] && session=${BASH_REMATCH[1]}
+    re='"tool_name"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_]+)"'
+    [[ "$json" =~ $re ]] && tool=${BASH_REMATCH[1]}
+  fi
+  [ -f "$BYTEK_HOME/debug" ] && printf '%s\n' "$json" >> "$BYTEK_HOME/hooks.log"
+
+  [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || session=default
+  f="$BYTEK_HOME/state/$session"
+  now=${BYTEK_NOW:-$(date +%s)}
+  load_state "$f"
+  [ -n "$cwd" ] && file=${file#"$cwd"/}
+
+  case "$event" in
+    SessionStart)
+      to idle
+      S_turn_start="" S_edits="" S_files=""
+      find "$BYTEK_HOME/state" -type f -mtime +7 -delete 2>/dev/null ;;
+    SessionEnd)
+      rm -f "$f"; return 0 ;;
+    UserPromptSubmit)
+      to thinking
+      S_turn_start=$now S_edits=0 S_files="" ;;
+    PreToolUse)
+      case "$tool" in
+        Read)       to reading "$file" ;;
+        Grep|Glob)  to searching "$pattern" ;;
+        Edit|Write|MultiEdit|NotebookEdit)
+          S_edits=$(( ${S_edits:-0} + 1 ))
+          case "${S_files:-|}" in *"|$file|"*) ;; *) S_files="${S_files:-|}$file|" ;; esac
+          n=${S_files//[!|]/}; n=$(( ${#n} - 1 ))
+          if [ "$n" -gt 1 ]; then to editing "$file" "editing $n files"; else to editing "$file"; fi ;;
+        Bash)
+          if [[ "$cmd" =~ $TEST_RE ]]; then to testing
+          else to thinking "" "running a command" "\$ $cmd"; fi ;;
+        mcp__*)     n=${tool#mcp__}; to thinking "" "using ${n%%__*}" ;;
+        *)          to thinking "" "using $tool" ;;
+      esac ;;
+    PostToolUse)
+      if [ "$S_state" = testing ]; then to thinking "" "tests passed" "✓ tests passed"
+      elif [ "$S_state" = waiting ]; then to thinking; fi ;;
+    PostToolUseFailure)
+      if [ "$S_state" = testing ]; then to error "$err" "tests failed"
+      else to error "$err" "$tool failed"; fi ;;
+    PermissionRequest)
+      to waiting "allow $tool${file:+ $file}${cmd:+ $cmd}?" ;;
+    PermissionDenied)
+      to thinking ;;
+    Notification)
+      # "Waiting for your input" after a finished turn is not a question; keep the state.
+      case "$ntype$message" in idle_prompt*|*"waiting for your input"*) return 0 ;; esac
+      to waiting "$message" ;;
+    Stop)
+      duration $(( now - ${S_turn_start:-$now} ))
+      if [ "${S_edits:-0}" -gt 0 ]; then to done "$S_edits changes · $REPLY"; else to done "$REPLY"; fi ;;
+    *)
+      return 0 ;;
+  esac
+  S_since=$now
+  write_state "$f"
+}
+
+cmd_hook() {
+  hook >/dev/null 2>&1
+  exit 0
 }
 
 cmd_states() {
@@ -175,5 +286,6 @@ case "${1:-}" in
   render) cmd_render ;;
   set)    shift; cmd_set "$@" ;;
   states) cmd_states ;;
-  *)      sed -n '2,10s/^# \{0,1\}//p' "$0"; exit 1 ;;
+  hook)   cmd_hook ;;
+  *)      sed -n '2,11s/^# \{0,1\}//p' "$0"; exit 1 ;;
 esac
