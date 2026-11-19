@@ -14,12 +14,15 @@ cd "$root" || exit 2
 
 # Shell files: bin/, *.sh, *.bash and *.bats that git tracks (vendored bats is a submodule, so
 # its files aren't listed). Outside a git checkout, the same patterns by name.
-files=()
-while IFS= read -r f; do
-  [ -f "$f" ] && files+=("$f")
-done < <(git ls-files 'bin/*' '*.sh' '*.bash' '*.bats' 2>/dev/null ||
+list=$(git ls-files 'bin/*' '*.sh' '*.bash' '*.bats' 2>/dev/null ||
   find bin tools tests install.sh uninstall.sh -path tests/bats -prune -o -type f \
     \( -path 'bin/*' -o -name '*.sh' -o -name '*.bash' -o -name '*.bats' \) -print)
+files=()
+while IFS= read -r f; do
+  if [ -f "$f" ]; then files+=("$f"); fi
+done <<EOF
+$list
+EOF
 
 case "${1:-}" in
   --files)
