@@ -5,7 +5,10 @@
 #   tools/lint.sh            check; exits 1 on any finding or formatting difference
 #   tools/lint.sh --fix      let shfmt rewrite the formatting (ShellCheck findings are fixed by hand)
 #   tools/lint.sh --files    list the files it checks
+# SHELLCHECK and SHFMT name the tools to run (default: from PATH), e.g. for tests.
 
+shellcheck=${SHELLCHECK:-shellcheck}
+shfmt=${SHFMT:-shfmt}
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root" || exit 2
 
@@ -24,16 +27,16 @@ case "${1:-}" in
     exit 0
     ;;
   --fix)
-    exec shfmt -w "${files[@]}"
+    exec "$shfmt" -w "${files[@]}"
     ;;
   "") ;;
   *)
-    sed -n '2,9s/^# \{0,1\}//p' "$0"
+    sed -n '2,10s/^# \{0,1\}//p' "$0"
     exit 2
     ;;
 esac
 
-for tool in shellcheck shfmt; do
+for tool in "$shellcheck" "$shfmt"; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "tools/lint.sh: $tool is not installed (macOS: brew install shellcheck shfmt)" >&2
     exit 2
@@ -41,9 +44,9 @@ for tool in shellcheck shfmt; do
 done
 
 status=0
-echo "ShellCheck ($(shellcheck --version | sed -n 's/^version: //p')), ${#files[@]} files"
-shellcheck "${files[@]}" || status=1
-echo "shfmt ($(shfmt --version))"
-shfmt -d "${files[@]}" || status=1
+echo "ShellCheck ($("$shellcheck" --version | sed -n 's/^version: //p')), ${#files[@]} files"
+"$shellcheck" "${files[@]}" || status=1
+echo "shfmt ($("$shfmt" --version))"
+"$shfmt" -d "${files[@]}" || status=1
 [ "$status" -eq 0 ] && echo "lint: clean"
 exit $status
