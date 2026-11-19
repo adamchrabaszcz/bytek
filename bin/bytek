@@ -11,13 +11,30 @@
 #   bytek setup [--hooks]            make Bytek the status line (backs up settings.json);
 #                                    --hooks also adds the hooks (installs without the plugin)
 #   bytek uninstall                  put back the original status line, remove Bytek's hooks
+#   bytek locale                     the locale Bytek uses to count characters
 #   bytek help                       this text
 #
 # Bash 3.2 compatible (the macOS default): no associative arrays, no mapfile.
 # The render path reads only local files and must stay well under 50 ms.
 # Hooks, setup and uninstall use jq; hooks without it fall back to the event name only.
 
-export LC_ALL="${BYTEK_LOCALE:-en_US.UTF-8}"
+# Bytek counts characters, not bytes, to cut text and align the art, which needs a UTF-8
+# locale. The first one that works wins: BYTEK_LOCALE, the user's own if it is UTF-8,
+# C.UTF-8, en_US.UTF-8. "Works" is tested in bash itself (one multi-byte character must count
+# as one), since an unknown name can fail silently. With none, BYTEK_UTF8=0: text isn't cut,
+# so no character is split in half. BYTEK_LOCALE_CANDIDATES replaces the last two (for tests).
+pick_locale() {
+  local own=${LC_ALL:-${LC_CTYPE:-$LANG}} candidate probe
+  case "$own" in *[Uu][Tt][Ff]-8|*[Uu][Tt][Ff]8|*[Uu][Tt][Ff]-8@*|*[Uu][Tt][Ff]8@*) ;; *) own="" ;; esac
+  for candidate in $BYTEK_LOCALE $own ${BYTEK_LOCALE_CANDIDATES:-C.UTF-8 en_US.UTF-8}; do
+    { export LC_ALL="$candidate"; } 2>/dev/null
+    probe="ᴗ"
+    if [ "${#probe}" -eq 1 ]; then BYTEK_UTF8=1; return; fi
+  done
+  { export LC_ALL=C; } 2>/dev/null
+  BYTEK_UTF8=0
+}
+pick_locale
 
 # Resolved through symlinks: ~/.claude/bytek/current points at the installed copy.
 BYTEK_ROOT="${BYTEK_ROOT:-$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
@@ -107,7 +124,8 @@ progress_bar() {
 
 # Sets REPLY to $1 cut to $2 characters, ending in "…" when cut.
 truncate_to() {
-  if [ -z "$2" ] || [ "${#1}" -le "$2" ]; then REPLY=$1; return; fi
+  # Without a UTF-8 locale lengths are bytes: cutting could split a character, so don't.
+  if [ -z "$2" ] || [ "$BYTEK_UTF8" != 1 ] || [ "${#1}" -le "$2" ]; then REPLY=$1; return; fi
   if [ "$2" -le 1 ]; then REPLY=""; return; fi
   REPLY="${1:0:$(( $2 - 1 ))}…"
 }
@@ -365,7 +383,7 @@ cmd_uninstall() {
   printf 'Your config and state stay in %s (delete it to remove everything).\n' "$BYTEK_HOME"
 }
 
-usage() { sed -n '2,14s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,15s/^# \{0,1\}//p' "$0"; }
 
 cmd_states() {
   local f
@@ -379,6 +397,7 @@ case "${1:-}" in
   hook)   cmd_hook ;;
   setup)  shift; cmd_setup "$@" ;;
   uninstall) cmd_uninstall ;;
+  locale) printf '%s (utf8=%s)\n' "$LC_ALL" "$BYTEK_UTF8" ;;
   help|-h|--help) usage ;;
   *)      usage; exit 1 ;;
 esac
