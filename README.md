@@ -20,6 +20,10 @@ In Polish, *bytek* also means "a little being".
 
 Early work in progress. The roadmap is tracked in the issues; nothing is installable yet.
 
+## Contributing
+
+New faces, outfits, companions and routines are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 [MIT](LICENSE)
