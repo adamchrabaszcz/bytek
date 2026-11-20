@@ -6,7 +6,7 @@ Each part of Bytek owns its data and talks to the others only through a file wit
 
 **Owns:** the state files, `$BYTEK_HOME/state/<session>`, and what a state is (`S_<key>` fields).
 **Code:** `lib/state.sh`.
-**Contract:** the state file format. Writers go through `state_write` (atomic, control characters removed); readers through `state_load` (a missing file is idle, unknown keys are ignored). Nothing else reads or writes state files.
+**Contract:** the state file format. Writers go through `state_write` (atomic, control characters removed); readers through `state_load` (a missing file is idle, unknown keys are ignored). A read-change-write holds the session's lock (`state_lock`, `state_unlock`), so hooks running at the same moment don't lose each other's updates; the status line only reads, so it never waits for it. Nothing else reads or writes state files.
 
 ## Hooks
 
