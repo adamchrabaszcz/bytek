@@ -7,6 +7,8 @@
 #   tools/close-parent.sh --decide "<parent> <state> <completed> <total>"
 #                                                       prints what it would do; for tests
 
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
+
 # Prints "close" when the parent should close now, otherwise why not.
 decide() {
   local number=$1 state=$2 completed=$3 total=$4

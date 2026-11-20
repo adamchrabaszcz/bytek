@@ -8,6 +8,8 @@
 #   tools/release.sh                    in a git checkout with full history and tags
 #   tools/release.sh --next <last>      commits on stdin as "subject\037body\036" records; for tests
 
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
+
 FIRST=0.1.0
 
 # Reads commit records on stdin; prints the version after $1 ("" = no release yet).

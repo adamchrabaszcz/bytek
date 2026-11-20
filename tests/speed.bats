@@ -2,7 +2,7 @@
 # The render path stays inside its time budget: the status line redraws every second, so one
 # render must take well under BYTEK_RENDER_BUDGET_MS (default 50 ms) on average. Renders every
 # state, with a long text that gets cut, through the real bin/bytek.
-# BYTEK_SKIP_SPEED=1 skips it (e.g. under kcov, whose tracing slows everything down).
+# BYTEK_SKIP_SPEED=1 skips it (e.g. under bashcov, whose tracing slows everything down).
 
 load helpers
 

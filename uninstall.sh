@@ -2,7 +2,7 @@
 # Undoes install.sh: puts back the original status line, removes Bytek's hooks and the
 # installed copy. --purge also deletes config, state and reports in ~/.claude/bytek.
 # Usage: ./uninstall.sh [--purge]
-set -e
+set -o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
 
 home="${BYTEK_HOME:-$HOME/.claude/bytek}"
 bin="$home/app/bin/bytek"
