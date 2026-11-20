@@ -84,4 +84,4 @@ Claude reviews each pull request when it's opened or marked ready (`.github/work
 - **Tests:** a change without a test that fails without it; a test that depends on timing.
 - **No personal data or secrets** in code, tests, docs or examples.
 
-Skip what ShellCheck, shfmt and the tests already catch. If nothing important turns up, say so briefly.
+Skip what ShellCheck, shfmt and the tests already catch. The summary is a checklist of these points and the definition of done, `[x]` when fine and `[ ]` with what needs attention (leaving out what doesn't apply), then the verdict. If nothing important turns up, keep it short.

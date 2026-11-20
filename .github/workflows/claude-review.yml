@@ -56,11 +56,15 @@ jobs:
             Post an inline comment on each specific problem, starting with its severity:
             "**blocking**" (must change before merging), "**should fix**" or "**nit**".
 
-            Then post one short summary comment that ends with a verdict: "**Ready to merge**",
-            or "**Changes needed**" followed by the blocking points. Never approve or request
-            changes as a GitHub review: merging is the owner's decision.
+            Then post one short summary comment: a checklist with one line per review point
+            from AGENTS.md's "Code review" section and the definition of done, leaving out the
+            points that don't apply to this change. "- [x] <point>: <why it's fine>" for a point
+            that passes, "- [ ] <point>: <what needs attention>" for one that doesn't, the
+            details in its inline comment. End with a verdict: "**Ready to merge**", or
+            "**Changes needed**" followed by the open points. Never approve or request changes
+            as a GitHub review: merging is the owner's decision.
 
-            If there is nothing important, say so in one or two sentences instead of inventing
+            If there is nothing important, the checklist is all ticked and short; don't invent
             issues.
           # The newest Opus for the subtle problems; "sonnet" uses the subscription's limits
           # more slowly. --max-turns caps a run, so one review can't use the limits up.
