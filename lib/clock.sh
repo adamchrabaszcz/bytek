@@ -17,17 +17,18 @@ clock_stamp() {
 # Sets the local date and time of moment $1 (seconds since 1970; default: now, or BYTEK_NOW)
 # from one `date` call: CLOCK_EPOCH, CLOCK_YEAR, CLOCK_MONTH, CLOCK_DAY, CLOCK_WEEKDAY
 # (1 Monday … 7 Sunday) and CLOCK_MIDNIGHT (that day's 00:00, in seconds). macOS's date reads a
-# moment with -r, GNU's with -d @; the first call finds out which this one is.
+# moment with -r, GNU's with -d @; $OSTYPE says which this one is.
 clock_fields() {
   local at=${1:-$BYTEK_NOW} out hour minute second
+  # Which date it is comes from bash's own $OSTYPE: trying `date -d` first would start a second
+  # process on every render on macOS (each render is a new process, so nothing is remembered).
   if [ -z "$at" ]; then
     out=$(date '+%s %Y %m %d %u %H %M %S')
-  elif [ "$CLOCK_DATE_FLAG" = gnu ] || { [ -z "$CLOCK_DATE_FLAG" ] && date -d @0 +%s >/dev/null 2>&1; }; then
-    CLOCK_DATE_FLAG=gnu
-    out=$(date -d "@$at" '+%s %Y %m %d %u %H %M %S')
   else
-    CLOCK_DATE_FLAG=bsd
-    out=$(date -r "$at" '+%s %Y %m %d %u %H %M %S')
+    case "$OSTYPE" in
+      darwin* | *bsd*) out=$(date -r "$at" '+%s %Y %m %d %u %H %M %S') ;;
+      *) out=$(date -d "@$at" '+%s %Y %m %d %u %H %M %S') ;;
+    esac
   fi
   read -r CLOCK_EPOCH CLOCK_YEAR CLOCK_MONTH CLOCK_DAY CLOCK_WEEKDAY hour minute second <<<"$out"
   # 10#: "08" is eight, not a bad octal number.
