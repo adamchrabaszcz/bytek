@@ -41,6 +41,10 @@ git clone https://github.com/adamchrabaszcz/bytek && cd bytek
 
 This copies Bytek to `~/.claude/bytek/app` and adds the status line and hooks to your settings (backed up first).
 
+## When something looks wrong
+
+`bytek doctor` (or `/bytek doctor` in Claude Code) checks the setup: jq, the locale, whether the status line and the hooks run Bytek, the state folder and how long a render takes. Each line says `ok`, `warning` or `problem`, with what to do; it shows nothing from your settings. Paste its output into a bug report.
+
 ## Uninstall
 
 - Plugin: `/bytek uninstall`, then `/plugin uninstall bytek@bytek`.

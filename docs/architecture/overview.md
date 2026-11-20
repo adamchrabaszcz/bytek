@@ -22,6 +22,7 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text | clock, state |
 | `lib/hooks.sh` | turns hook events into states; the debug log; following plugin updates | clock, state |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
+| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings |
 
 The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq`, `original-statusline.jq` and `saved-statusline.jq` to settings.
 
@@ -33,6 +34,7 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 | `bytek hook` | locale, clock, state, hooks | if installed |
 | `bytek set` | locale, clock, state | no |
 | `bytek setup`, `uninstall` | locale, clock, settings | required |
+| `bytek doctor` | locale, clock, settings, doctor | if installed |
 | `bytek states`, `locale`, `help` | locale | no |
 
 ## Layers
@@ -42,7 +44,8 @@ From the bottom up; a module uses only modules below it:
 1. **locale, clock**: the environment (locale, time).
 2. **state**: the one piece of shared data, the state file.
 3. **render, hooks, settings**: the jobs; none of them uses another.
-4. **bin/bytek**: paths, `die`, the small commands (`set`, `states`, `locale`), dispatch.
+4. **doctor**: checks an installation, using settings to recognise Bytek in `settings.json`.
+5. **bin/bytek**: paths, `die`, the small commands (`set`, `states`, `locale`), dispatch.
 
 Data sits beside the code, read by the modules: `faces/` (one file per state), `hooks/hooks.json` (the hooks the plugin and `setup --hooks` install). The file formats are in `data-files.md`; who owns what in `bounded-contexts.md`.
 
