@@ -74,7 +74,7 @@ CI (`.github/workflows/test.yml`) runs lint and the tests on Linux and on macOS 
 
 ## Code review
 
-Claude reviews each pull request when it's opened or marked ready (`.github/workflows/claude-review.yml`); `@claude review` in a comment asks for another pass. When reviewing, look first at what CI can't see:
+Claude reviews each pull request when it's opened or marked ready (`.github/workflows/claude-review.yml`); `@claude review` in a comment asks for another pass (only the owner, members and collaborators can start it; fork pull requests get no automatic review). When reviewing, look first at what CI can't see:
 
 - **Bash 3.2:** anything newer that slips through (`docs/adr/0004-bash-3-2-compatible.md`), `"$var▰"` without braces.
 - **The render path:** a new subprocess, jq or network call in `bytek render` (50 ms budget).

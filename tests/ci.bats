@@ -105,3 +105,10 @@ triggers() {
   assert_output --partial "leaving out the"
   grep -q '`\[x\]` when fine and `\[ \]`' "$ROOT/AGENTS.md" || fail "AGENTS.md doesn't describe the checklist"
 }
+
+@test "@claude runs only for the owner, members and collaborators" {
+  run job claude.yml claude
+  # One condition per event: comments, review comments and reviews.
+  assert_equal "$(grep -c "contains(fromJSON('\[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"\]'), github.event.comment.author_association)" <<<"$output")" 2
+  assert_equal "$(grep -c "contains(fromJSON('\[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"\]'), github.event.review.author_association)" <<<"$output")" 1
+}
