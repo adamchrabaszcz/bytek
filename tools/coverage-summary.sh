@@ -1,56 +1,52 @@
 #!/usr/bin/env bash
-# Turns kcov's coverage.json into a Markdown table for the GitHub job summary. Needs jq.
+# Turns bashcov's coverage report (SimpleCov's coverage.json, schema 1.3) into a Markdown table
+# for the GitHub job summary. Needs jq.
 #
-#   tools/coverage-summary.sh <kcov dir | coverage.json> [path prefix to strip]
-#   tools/coverage-summary.sh --report-dir <kcov dir>     prints the folder holding the report
+#   tools/coverage-summary.sh <coverage dir | coverage.json> [--require FILE...]
 #
-# kcov writes its report to <dir>/kcov-merged/ when it merges runs and to <dir>/<script>.<hash>/
-# otherwise; both are found. Fails when there is no report or it covers no files, so a
-# broken coverage run can't pass unnoticed.
+# Fails when there is no report or it covers no files. With --require, also fails when one of
+# the named files (paths relative to the repository, as in the table) is missing from the report
+# or has no covered lines: a script whose tests run but whose coverage silently vanished (#59).
 
-# Sets REPORT to the coverage.json inside kcov output dir $1 (kcov-merged first).
-find_report() {
-  local f
-  REPORT=""
-  if [ -f "$1/kcov-merged/coverage.json" ]; then
-    REPORT="$1/kcov-merged/coverage.json"
-    return
-  fi
-  for f in "$1"/*/coverage.json; do
-    [ -f "$f" ] && {
-      REPORT=$f
-      return
-    }
-  done
-}
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
 
-if [ "$1" = --report-dir ]; then
-  find_report "$2"
-  [ -n "$REPORT" ] || {
-    echo "coverage-summary: no kcov report in ${2:-?}" >&2
-    exit 2
-  }
-  printf '%s\n' "${REPORT%/coverage.json}"
-  exit 0
+source=${1:-}
+shift
+report=$source
+if [ -d "$source" ]; then report="$source/coverage.json"; fi
+required=()
+if [ "${1:-}" = --require ]; then
+  shift
+  required=("$@")
 fi
 
-if [ -d "$1" ]; then find_report "$1"; else REPORT=$1; fi
-prefix=${2:-}
-[ -f "$REPORT" ] || {
-  echo "coverage-summary: no kcov report in ${1:-?}" >&2
+[ -f "$report" ] || {
+  echo "coverage-summary: no coverage report in ${source:-?}" >&2
   exit 2
 }
-jq -e '(.files | length) > 0' "$REPORT" >/dev/null || {
-  echo "coverage-summary: the report covers no files: $REPORT" >&2
+jq -e '(.coverage // {} | length) > 0' "$report" >/dev/null 2>&1 || {
+  echo "coverage-summary: the report covers no files: $report" >&2
   exit 1
 }
 
-jq -r --arg prefix "$prefix" '
-  def pct: tonumber * 10 | round / 10;
-  "## Coverage: \(.percent_covered | pct)% of lines",
+jq -r '
+  def pct: . * 10 | round / 10;
+  "## Coverage: \(.total.lines.percent | pct)% of lines",
   "",
   "| File | Lines | % |",
   "| --- | --- | --- |",
-  (.files | sort_by(.file)[] |
-    "| `\(.file | ltrimstr($prefix))` | \(.covered_lines)/\(.total_lines) | \(.percent_covered | pct) |")
-' "$REPORT"
+  (.coverage | to_entries | sort_by(.key)[] |
+    "| `\(.key)` | \(.value.covered_lines)/\(.value.total_lines) | \(.value.lines_covered_percent | pct) |")
+' "$report"
+
+[ ${#required[@]} -gt 0 ] || exit 0
+problems=$(jq -r '
+  .coverage as $files | $ARGS.positional[]
+  | if $files[.] == null then "\(.): not in the coverage report"
+    elif $files[.].covered_lines == 0 then "\(.): no covered lines"
+    else empty end
+' --args "${required[@]}" <"$report")
+if [ -n "$problems" ]; then
+  printf 'coverage-summary: required files without coverage:\n%s\n' "$problems" >&2
+  exit 1
+fi

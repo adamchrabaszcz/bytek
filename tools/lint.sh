@@ -7,6 +7,8 @@
 #   tools/lint.sh --files    list the files it checks
 # SHELLCHECK and SHFMT name the tools to run (default: from PATH), e.g. for tests.
 
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
+
 shellcheck=${SHELLCHECK:-shellcheck}
 shfmt=${SHFMT:-shfmt}
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

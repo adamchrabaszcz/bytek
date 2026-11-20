@@ -10,6 +10,8 @@
 #   tools/format-check.sh pr [event.json]      prints what is missing; exits 1 when something is
 # The event defaults to $GITHUB_EVENT_PATH, as in GitHub Actions.
 
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
+
 TYPES="feat|fix|perf|docs|ci|chore|test|refactor|style|build"
 TITLE_RE="^($TYPES)(\([[:alnum:] ,./_-]+\))?!?: [^ ]"
 CLOSES_RE="(^|[^[:alnum:]_])(close[sd]?|fix(e[sd])?|resolve[sd]?) +#[0-9]+([^[:alnum:]_]|$)"

@@ -5,6 +5,8 @@
 # it also writes a table of files, results and notes (lines a test writes as "# ..." to fd 3).
 # Usage: tests/run.sh [dir]
 
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dir="${1:-$here}"
 bats="$here/bats/core/bin/bats"

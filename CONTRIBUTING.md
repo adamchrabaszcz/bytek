@@ -115,9 +115,9 @@ tools/lint.sh --fix                         # let shfmt fix the formatting
 
 CI (`.github/workflows/test.yml`) runs the same on every push to `main` and every pull request, on macOS with its own bash 3.2 and on Linux. The job summary lists each test suite with its result; the badge in the README shows the state of `main`.
 
-The render path has a budget: 50 ms per render on average, because the status line redraws every second. `tests/speed.sh` renders every state through the real `bin/bytek` and fails above it; its result line (and so the job summary) shows the measured time per OS. `BYTEK_RENDER_BUDGET_MS` changes the budget locally, and the coverage run skips the check (`BYTEK_SKIP_SPEED=1`) because kcov slows everything down.
+The render path has a budget: 50 ms per render on average, because the status line redraws every second. `tests/speed.bats` renders every state through the real `bin/bytek` and fails above it; its note (and so the job summary) shows the measured time per OS. `BYTEK_RENDER_BUDGET_MS` changes the budget locally, and the coverage run skips the check (`BYTEK_SKIP_SPEED=1`) because tracing slows everything down.
 
-The Linux job also runs the tests under [kcov](https://github.com/SimonKagstrom/kcov) for line coverage of `bin/` and `tools/`: a table per file in the job summary, uploaded to Codecov (coverage badge in the README, coverage diff on pull requests). To see it locally on Linux: `kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh`, then open `coverage/index.html`.
+The Linux job also runs the tests under [bashcov](https://github.com/infertux/bashcov) for line coverage of every bash script in the repository (settings in `.simplecov`; the tests themselves are left out): a table per file in the job summary, uploaded to Codecov (coverage badge in the README, coverage diff on pull requests). The step fails when `bin/bytek` or any tool shows no covered lines, so a measurement that silently stops can't pass. bashcov follows scripts behind bats' `run`, which kcov couldn't (#59). To see it locally (Linux, Ruby): `gem install bashcov simplecov-cobertura`, then `BYTEK_SKIP_SPEED=1 bashcov --root . -- tests/run.sh` and open `coverage/index.html`.
 
 ## Code conventions
 
@@ -129,9 +129,9 @@ The Linux job also runs the tests under [kcov](https://github.com/SimonKagstrom/
 - GitHub Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v4.4.0`); Dependabot proposes updates. Dependabot's pull requests are the one exception to "every pull request closes an issue".
 - Art and behaviour live in data files (one file per item); the engine reads them. A new face, add-on, outfit or companion should not need an engine change.
 - Optional features (macOS Shortcuts, Music) degrade cleanly when the tool isn't there.
-- jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and kcov can only count the first line of a multi-line command.
-- ShellCheck findings are fixed, not silenced. When the flagged code is intended (e.g. splitting on `IFS='|'` on purpose), disable that one check on that one line with the reason: `# shellcheck disable=SC2206 # splitting on '|' is the point`. Repository-wide exceptions live in `.shellcheckrc`, each with its reason.
-- Comments explain *why*, not *what*.
+- jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and line coverage can only count the first line of a multi-line command.
+- **Shell options:** every script declares `errexit`, `nounset` and `pipefail` before its first command (`set +o errexit +o nounset +o pipefail`, or `-o errexit` where it should stop on errors), instead of inheriting them. A parent that exports its options (bashcov does, to trace every script) would otherwise switch on strict modes a script wasn't written for. `tests/shell-options.bats` checks it.
+- ShellCheck findings are fixed, not silenced. When the flagged code is intended (e.g. splitting on `IFS='|'` on purpose), disable that one check on that one line with the reason: `# shellcheck disable=SC2206 # splitting on '|' is the point`. Repository-wide exceptions live in `.shellcheckrc`, each with its reason.- Comments explain *why*, not *what*.
 
 ## Art rules
 

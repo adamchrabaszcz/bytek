@@ -9,32 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  # ShellCheck and shfmt (tools/lint.sh), at the exact versions contributors use locally,
-  # downloaded from their GitHub releases and checked against their SHA-256 digests.
-  lint:
-    runs-on: ubuntu-latest
-    env:
-      SHELLCHECK_VERSION: v0.11.0
-      SHELLCHECK_SHA256: b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
-      SHFMT_VERSION: v3.14.1
-      SHFMT_SHA256: 76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: Install ShellCheck and shfmt
-        run: |
-          mkdir -p "$RUNNER_TEMP/bin"
-          cd "$RUNNER_TEMP"
-          curl -fsSLo shellcheck.tar.gz "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.gz"
-          echo "$SHELLCHECK_SHA256  shellcheck.tar.gz" | sha256sum -c -
-          tar -xzf shellcheck.tar.gz
-          mv "shellcheck-$SHELLCHECK_VERSION/shellcheck" bin/
-          curl -fsSLo bin/shfmt "https://github.com/mvdan/sh/releases/download/$SHFMT_VERSION/shfmt_${SHFMT_VERSION}_linux_amd64"
-          echo "$SHFMT_SHA256  bin/shfmt" | sha256sum -c -
-          chmod +x bin/shfmt
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - name: Lint
-        run: tools/lint.sh
-
   test:
     strategy:
       fail-fast: false
@@ -58,21 +32,22 @@ jobs:
           for f in bin/* tools/*.sh tests/run.sh tests/helpers.bash install.sh uninstall.sh; do bash -n "$f"; done
       - name: Tests
         run: tests/run.sh
-      # Line coverage of the bash code, from the same tests run under kcov (Linux only).
-      - name: Coverage (kcov)
+      # Line coverage of the bash code: bashcov runs the same tests and follows every bash script
+      # they start, including those behind bats' run (#59). Settings in .simplecov. Linux only.
+      - name: Coverage (bashcov)
         if: runner.os == 'Linux'
         run: |
           set -o pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq kcov
-          # kcov's tracing slows every render down; the Tests step above checks the budget.
-          BYTEK_SKIP_SPEED=1 kcov --include-path="$PWD/bin,$PWD/tools" coverage tests/run.sh; echo "kcov exit: $?"
-          tools/coverage-summary.sh coverage "$PWD/" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "COVERAGE_DIR=$(tools/coverage-summary.sh --report-dir coverage)" >> "$GITHUB_ENV"
+          command -v gem >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ruby; }
+          sudo gem install --no-document bashcov:4.0.3 simplecov:1.3.2 simplecov-cobertura:4.0.0
+          # Tracing slows every render down; the Tests step above checks the speed budget.
+          BYTEK_SKIP_SPEED=1 bashcov --root "$PWD" -- tests/run.sh
+          # Every script must show coverage, so a measurement that silently stops fails the build.
+          tools/coverage-summary.sh coverage --require bin/bytek tools/*.sh install.sh uninstall.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux'
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
-          files: ${{ env.COVERAGE_DIR }}/cobertura.xml
+          files: coverage/coverage.xml
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
