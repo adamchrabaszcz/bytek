@@ -20,3 +20,4 @@ What it replaces, and what goes wrong with it.
 ## Patterns
 
 - [Return values through REPLY](reply-return-value.md): functions on the render path set `REPLY` instead of printing into `$( )`.
+- [Braces before non-ASCII text](braces-before-non-ascii.md): `"${bar}▰"`, not `"$bar▰"`, which macOS's bash 3.2 misreads.

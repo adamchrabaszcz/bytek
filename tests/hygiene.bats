@@ -30,3 +30,11 @@ load helpers
   done <<<"$files"
   [ -z "$problems" ] || fail "$problems"
 }
+
+@test "no variable is directly followed by a non-ASCII character" {
+  # macOS's bash 3.2 misreads "$bar▰" in a UTF-8 locale; "${bar}▰" works (#75).
+  local files
+  files=$(git -C "$ROOT" ls-files 'bin/*' 'lib/*.sh' 2>/dev/null) || skip "not a git checkout"
+  run bash -c 'cd "$1" && LC_ALL=C awk '\''/\$[A-Za-z_][A-Za-z0-9_]*[\200-\377]/ { print FILENAME ":" FNR ": " $0 }'\'' $2' _ "$ROOT" "$files"
+  [ -z "$output" ] || fail "needs braces, see docs/patterns/braces-before-non-ascii.md:"$'\n'"$output"
+}
