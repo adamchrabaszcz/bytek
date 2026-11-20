@@ -80,7 +80,7 @@ The current add-on is named in `$BYTEK_HOME/addon` (below); without it, or when 
 | `current` | setup, hooks | link to the installed copy; the status line command runs `current/bin/bytek` |
 | `backup/settings.json.<stamp>` | setup | `settings.json` before setup changed it (`.before-uninstall` for uninstall) |
 | `original-statusline.json` | setup | the status line Bytek replaced: `{"format": 1, "statusLine": ...}`, the status line `null` if there was none; uninstall puts it back and removes the file |
-| `addon` | `bytek addon` | the current mood antenna's name, one line (`star`); only letters and `-` count. No version line: a different format would get a new file name |
+| `addon` | `bytek addon` | the current mood antenna's name, one line (`star`), shared by all sessions; only letters and `-` count. No version line: a different format would get a new file name |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
 | `config/` | the user | personal settings for features that need them (routines, places); nothing reads it yet; each feature documents its file here |

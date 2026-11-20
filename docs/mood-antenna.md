@@ -1,6 +1,6 @@
 # Mood antenna
 
-The symbol on top of Bytek's antenna shows the session's vibe. Claude picks it a few times per session; it's a playful choice, not a claim about feelings. The current one is in `~/.claude/bytek/addon`, and each add-on is a file in `addons/` (format in `docs/architecture/data-files.md`).
+The symbol on top of Bytek's antenna shows the session's vibe. Claude picks it a few times per session; it's a playful choice, not a claim about feelings. The current one is in `~/.claude/bytek/addon`, and each add-on is a file in `addons/` (format in `docs/architecture/data-files.md`). There is one antenna for all sessions: with two Claude Code sessions open, the last one to pick sets it on both status lines.
 
 | Add-on | Antenna | Vibe |
 | --- | --- | --- |

@@ -69,3 +69,12 @@ antenna() {
   hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"ls addons"}}'
   assert_state s1 state thinking
 }
+
+@test "a command that only starts with bytek addon still shows" {
+  needs_jq
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"~/.claude/bytek/current/bin/bytek addon star && npm test"}}'
+  assert_state s1 state testing
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"/r/a.ts"}}'
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"bytek addon star; rm -rf build"}}'
+  assert_state s1 state thinking
+}
