@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # The docs agents and contributors rely on keep their shape: AGENTS.md small enough to load
-# whole, CLAUDE.md pointing at it, ADRs numbered and listed, patterns with their anti-pattern.
+# whole and the one instruction file, ADRs numbered and listed, patterns with their anti-pattern.
 
 load helpers
 
@@ -10,8 +10,13 @@ load helpers
   [ "$size" -lt 10240 ] || fail "AGENTS.md is $size bytes; move details to CONTRIBUTING.md or docs/"
 }
 
-@test "CLAUDE.md loads AGENTS.md" {
-  grep -qx '@AGENTS.md' "$ROOT/CLAUDE.md"
+@test "AGENTS.md is the only instruction file" {
+  # Claude Code reads AGENTS.md only when no CLAUDE.md is around; one would replace it.
+  local f found=""
+  for f in CLAUDE.md .claude/CLAUDE.md CLAUDE.local.md; do
+    [ -e "$ROOT/$f" ] && found="$found $f"
+  done
+  [ -z "$found" ] || fail "found$found: Claude Code would read it instead of AGENTS.md"
 }
 
 @test "ADRs are numbered, unique, have a status and are listed in the index" {

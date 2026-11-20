@@ -6,7 +6,7 @@ Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Editors 
 
 Where things are written down:
 
-- `AGENTS.md`: the short version for coding agents (guardrails, what to decide alone and what to ask). `CLAUDE.md` loads it for Claude Code.
+- `AGENTS.md`: the short version for coding agents (guardrails, what to decide alone and what to ask). Claude Code reads it directly (v2.1.277 or later), as long as there is no `CLAUDE.md`, so the repository has none.
 - `docs/adr/`: architecture decision records, numbered, never deleted.
 - `docs/architecture/`: how the engine is put together and the file formats.
 - `docs/patterns/`: code shapes to follow, each with the anti-pattern it replaces.
