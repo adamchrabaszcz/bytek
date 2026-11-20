@@ -8,7 +8,7 @@ Claude Code ──hook JSON──▶ bytek hook ──▶ state file ($BYTEK_HOM
 Claude Code ◀──4 lines── bytek render ◀──────────┘  + face file (faces/<state>)
 ```
 
-Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` bash, `0004` bash 3.2, `0005` editing settings.json, `0006` jq).
+Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` bash, `0004` bash 3.2, `0010` editing settings.json, `0006` jq).
 
 ## Modules
 
@@ -22,7 +22,7 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/routines.sh` | the user's routines: reads `config/routines`, works out when each happens next | clock |
 | `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | nothing |
 | `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text | clock, state, addon |
-| `lib/hooks.sh` | turns hook events into states; the debug log; following plugin updates | clock, state |
+| `lib/hooks.sh` | turns hook events into states; the antenna reminder; the debug log; following plugin updates | clock, state, addon |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
 | `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines |
 
@@ -34,7 +34,7 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 | --- | --- | --- |
 | `bytek render` | locale, clock, state, addon, render | never |
 | `bytek addon` | locale, addon | no |
-| `bytek hook` | locale, clock, state, hooks | if installed |
+| `bytek hook` | locale, clock, state, addon, hooks | if installed |
 | `bytek set` | locale, clock, state | no |
 | `bytek setup`, `uninstall` | locale, clock, settings | required |
 | `bytek doctor` | locale, clock, settings, routines, doctor | if installed |

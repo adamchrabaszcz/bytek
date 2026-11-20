@@ -13,7 +13,7 @@ Each part of Bytek owns its data and talks to the others only through a file wit
 **Owns:** turning Claude Code's events into states; the debug log (`hooks.log`, off unless `$BYTEK_HOME/debug` exists); keeping `$BYTEK_HOME/current` pointed at the newest plugin copy.
 **Code:** `lib/hooks.sh`, `lib/hook-fields.jq`, `lib/debug-log.jq`, `hooks/hooks.json`.
 **In:** hook JSON on stdin, from Claude Code; untrusted, so every field goes through the control-character filter in `hook-fields.jq`.
-**Out:** a state file per session. Never stdout (some hooks' output reaches Claude's context), and always exit 0 (a failing hook must not block a tool call).
+**Out:** a state file per session; on stdout only the antenna reminder on session start and prompts, which Claude Code adds to Claude's context (`docs/adr/0009-antenna-reminders.md`), nothing on any other event. Always exit 0 (a failing hook must not block a tool call).
 
 ## Render
 
@@ -26,7 +26,7 @@ Each part of Bytek owns its data and talks to the others only through a file wit
 
 **Owns:** Bytek's place in `~/.claude/settings.json` (`statusLine`, and Bytek's hooks for installs without the plugin), the backups, and the status line Bytek replaced.
 **Code:** `lib/settings.sh`, `lib/setup.jq`, `lib/uninstall.jq`, `lib/original-statusline.jq`.
-**Contract:** touches nothing in `settings.json` but its own entries; backs the file up first; never prints it (it can hold secrets). Why Bytek edits the file at all: `docs/adr/0005-bytek-edits-settings-json.md`.
+**Contract:** touches nothing in `settings.json` but its own entries (the status line, its hooks, one permission rule for `bytek addon`); backs the file up first; never prints it (it can hold secrets). Why Bytek edits the file at all, and what it may touch: `docs/adr/0010-bytek-edits-settings-json.md`.
 
 ## Providers (planned)
 
