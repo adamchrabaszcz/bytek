@@ -1,0 +1,46 @@
+name: coverage
+
+# Line coverage of the bash code, after a merge: it shows the trend on main (job summary,
+# Codecov, the README badge) and blocks nothing. bashcov traces every line, which takes
+# minutes (its Ruby reader runs at a full core), so pull requests don't wait for it (#70).
+# Its own workflow, not a job in `test`: releases start when `test` passes, not this.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coverage
+  cancel-in-progress: true # only the newest commit on main matters
+
+jobs:
+  # bashcov runs the tests and follows every bash script they start, including those behind
+  # bats' run (#59). Settings in .simplecov; the gems come from Gemfile.lock, cached by
+  # setup-ruby.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true # bats lives in tests/bats/
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Coverage (bashcov)
+        run: |
+          set -o pipefail
+          # BYTEK_COVERAGE=1: tests that can't run or add nothing under tracing skip themselves
+          # (the speed budget, tests/run.sh's own tests). The files run in parallel, one per core.
+          BYTEK_COVERAGE=1 bundle exec bashcov --root "$PWD" -- tests/run.sh -j "$(nproc)"
+          # Every script must show coverage, so a measurement that silently stops fails the run.
+          tools/coverage-summary.sh coverage --require bin/bytek tools/*.sh install.sh uninstall.sh | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: coverage/coverage.xml
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
