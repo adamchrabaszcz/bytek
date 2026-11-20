@@ -28,9 +28,12 @@ next_version() {
       level=1
     fi
   done
-  if [ -z "$last" ]; then echo "$FIRST"; return; fi
+  if [ -z "$last" ]; then
+    echo "$FIRST"
+    return
+  fi
   local major minor patch
-  IFS=. read -r major minor patch <<< "$last"
+  IFS=. read -r major minor patch <<<"$last"
   case $level in
     3) echo "$((major + 1)).0.0" ;;
     2) echo "$major.$((minor + 1)).0" ;;

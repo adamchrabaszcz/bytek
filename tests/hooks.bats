@@ -85,7 +85,7 @@ ev() {
   ev 1004 '"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"/repo/b.ts"}'
   ev 1005 '"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"/repo/a.ts"}'
   ev 1041 '"hook_event_name":"Stop"'
-  assert_state s1 state done
+  assert_state s1 state "done"
   assert_state s1 arg "3 changes · 41s"
   BYTEK_NOW=1041 run render s1
   assert_output --partial "3 changes · 41s"

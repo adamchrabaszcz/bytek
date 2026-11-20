@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # Setup, uninstall, the manual install scripts and the plugin files, always against a
 # temporary settings.json (never the real ~/.claude/settings.json).
+# shellcheck disable=SC2088 # "~/bin/..." is sample settings data, compared as text, not a path
 
 load helpers
 
@@ -8,7 +9,7 @@ setup() {
   bytek_setup
   needs_jq
   # A user with their own status line, other settings and a hook of their own.
-  cat > "$TMP/initial.json" <<'EOF'
+  cat >"$TMP/initial.json" <<'EOF'
 {
   "theme": "dark",
   "statusLine": { "type": "command", "command": "~/bin/my-status", "padding": 2 },
@@ -67,7 +68,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
 }
 
 @test "without an earlier status line, uninstall removes it again" {
-  printf '{"theme":"light"}' > "$TMP/plain.json"
+  printf '{"theme":"light"}' >"$TMP/plain.json"
   cp "$TMP/plain.json" "$BYTEK_SETTINGS"
   "$BYTEK" setup --hooks >/dev/null
   "$BYTEK" uninstall >/dev/null
@@ -76,7 +77,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
 
 @test "a status line set by someone else after setup survives uninstall" {
   "$BYTEK" setup >/dev/null
-  jq '.statusLine = {"type":"command","command":"other"}' "$BYTEK_SETTINGS" > "$TMP/s.json"
+  jq '.statusLine = {"type":"command","command":"other"}' "$BYTEK_SETTINGS" >"$TMP/s.json"
   cp "$TMP/s.json" "$BYTEK_SETTINGS"
   "$BYTEK" uninstall >/dev/null
   assert_equal "$(q .statusLine.command)" other
@@ -86,7 +87,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
   # A jq that fails only on Bytek's own programs.
   mkdir -p "$TMP/fakebin"
   printf '#!/bin/sh\nfor a in "$@"; do case "$a" in */lib/setup.jq|*/lib/uninstall.jq) exit 5 ;; esac; done\nexec "%s" "$@"\n' \
-    "$(command -v jq)" > "$TMP/fakebin/jq"
+    "$(command -v jq)" >"$TMP/fakebin/jq"
   chmod +x "$TMP/fakebin/jq"
 
   PATH="$TMP/fakebin:$PATH" run "$BYTEK" setup
@@ -105,7 +106,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
 @test "only Bytek's hook leaves a matcher group it shares with the user" {
   jq --arg b "\"$BYTEK_HOME/current/bin/bytek\" hook" \
     '.hooks.PreToolUse[0].hooks += [{"type": "command", "command": $b}] | .hooks.Stop = [{"matcher": "x"}]' \
-    "$TMP/initial.json" > "$BYTEK_SETTINGS"
+    "$TMP/initial.json" >"$BYTEK_SETTINGS"
   "$BYTEK" setup --hooks >/dev/null
   assert_equal "$(q '[.hooks.PreToolUse[].hooks[] | select(.command == "~/bin/guard")] | length')" 1
   assert_equal "$(q '[.hooks.Stop[] | select(.matcher == "x")] | length')" 1
@@ -116,7 +117,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
 
 @test "an empty saved status line doesn't break uninstall" {
   "$BYTEK" setup >/dev/null
-  : > "$BYTEK_HOME/original-statusline.json"
+  : >"$BYTEK_HOME/original-statusline.json"
   run "$BYTEK" uninstall
   assert_success
   assert_equal "$(q 'has("statusLine")')" false
@@ -130,7 +131,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
 }
 
 @test "invalid settings are left alone" {
-  printf '{ not json' > "$BYTEK_SETTINGS"
+  printf '{ not json' >"$BYTEK_SETTINGS"
   run "$BYTEK" setup
   assert_failure
   assert_equal "$(cat "$BYTEK_SETTINGS")" '{ not json'

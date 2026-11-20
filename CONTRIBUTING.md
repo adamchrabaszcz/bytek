@@ -107,7 +107,11 @@ tests/run.sh                                # every .bats file, one line per fil
 tests/bats/core/bin/bats tests/hooks.bats   # one file, every test listed
 bash -n bin/bytek                           # the script parses
 /bin/bash tests/run.sh                      # under macOS's bash 3.2 if you're on a Mac
+tools/lint.sh                               # ShellCheck + shfmt on every shell file
+tools/lint.sh --fix                         # let shfmt fix the formatting
 ```
+
+`tools/lint.sh` needs [ShellCheck](https://www.shellcheck.net) and [shfmt](https://github.com/mvdan/sh) (macOS: `brew install shellcheck shfmt`). CI runs the same script with pinned versions (ShellCheck 0.11.0, shfmt 3.14.1, in the `lint` job of `.github/workflows/test.yml`); when you bump them, update both there and here.
 
 CI (`.github/workflows/test.yml`) runs the same on every push to `main` and every pull request, on macOS with its own bash 3.2 and on Linux. The job summary lists each test suite with its result; the badge in the README shows the state of `main`.
 
@@ -127,7 +131,7 @@ The Linux job also runs the tests under [bashcov](https://github.com/infertux/ba
 - Optional features (macOS Shortcuts, Music) degrade cleanly when the tool isn't there.
 - jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and line coverage can only count the first line of a multi-line command.
 - **Shell options:** every script declares `errexit`, `nounset` and `pipefail` before its first command (`set +o errexit +o nounset +o pipefail`, or `-o errexit` where it should stop on errors), instead of inheriting them. A parent that exports its options (bashcov does, to trace every script) would otherwise switch on strict modes a script wasn't written for. `tests/shell-options.bats` checks it.
-- Comments explain *why*, not *what*.
+- ShellCheck findings are fixed, not silenced. When the flagged code is intended (e.g. splitting on `IFS='|'` on purpose), disable that one check on that one line with the reason: `# shellcheck disable=SC2206 # splitting on '|' is the point`. Repository-wide exceptions live in `.shellcheckrc`, each with its reason.- Comments explain *why*, not *what*.
 
 ## Art rules
 

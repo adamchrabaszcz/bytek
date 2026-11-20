@@ -17,17 +17,17 @@ render_all() {
       i=$((i + 1)) n=$((n + 1))
     done
   done
-  echo "$n" > "$TMP/count"
+  echo "$n" >"$TMP/count"
 }
 
 @test "a render takes less than the budget on average" {
   [ "${BYTEK_SKIP_SPEED:-}" = 1 ] && skip "render budget not checked (BYTEK_SKIP_SPEED=1)"
   local budget=${BYTEK_RENDER_BUDGET_MS:-50} seconds avg TIMEFORMAT=%3R
   # bash's own `time` gives milliseconds on bash 3.2 too, without extra tools.
-  seconds=$( { time render_all "${BYTEK_SPEED_ROUNDS:-10}"; } 2>&1 )
+  seconds=$({ time render_all "${BYTEK_SPEED_ROUNDS:-10}"; } 2>&1)
   avg=$(awk -v s="$seconds" -v n="$(cat "$TMP/count")" 'BEGIN { printf "%.1f", s * 1000 / n }')
   # A note for tests/run.sh's summary (and the CI job summary): the measured time.
   echo "# ${avg} ms per render, budget ${budget} ms" >&3
-  awk -v a="$avg" -v b="$budget" 'BEGIN { exit !(a <= b) }' \
-    || fail "render takes ${avg} ms on average, over the ${budget} ms budget"
+  awk -v a="$avg" -v b="$budget" 'BEGIN { exit !(a <= b) }' ||
+    fail "render takes ${avg} ms on average, over the ${budget} ms budget"
 }

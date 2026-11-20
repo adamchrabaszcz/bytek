@@ -27,6 +27,6 @@ load helpers
       *) LC_ALL=C grep -q '[[:blank:]]$' "$path" && problems="$problems$f: trailing whitespace"$'\n' ;;
     esac
     [ "$f" != .gitmodules ] && LC_ALL=C grep -q $'^\t' "$path" && problems="$problems$f: tab indentation"$'\n' # git's own format
-  done <<< "$files"
+  done <<<"$files"
   [ -z "$problems" ] || fail "$problems"
 }

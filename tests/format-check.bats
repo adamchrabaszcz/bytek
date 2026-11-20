@@ -10,8 +10,14 @@ setup() {
   needs_jq
 }
 
-issue() { jq -n --arg body "$1" '{issue: {body: $body}}' > "$TMP/event.json"; "$CHECK" issue "$TMP/event.json"; }
-pr() { jq -n --arg title "$1" --arg body "$2" '{pull_request: {title: $title, body: $body}}' > "$TMP/event.json"; "$CHECK" pr "$TMP/event.json"; }
+issue() {
+  jq -n --arg body "$1" '{issue: {body: $body}}' >"$TMP/event.json"
+  "$CHECK" issue "$TMP/event.json"
+}
+pr() {
+  jq -n --arg title "$1" --arg body "$2" '{pull_request: {title: $title, body: $body}}' >"$TMP/event.json"
+  "$CHECK" pr "$TMP/event.json"
+}
 
 @test "a complete issue passes, an empty optional section included" {
   run issue $'### What and why\nRain outfit.\n\n### Done when\n- [ ] drops render\n\n### Blast radius\n_No response_'

@@ -48,18 +48,25 @@ check_pr() {
 }
 
 event=${2:-$GITHUB_EVENT_PATH}
-[ -f "$event" ] || { echo "format-check: no event file (${event:-unset})" >&2; exit 2; }
+[ -f "$event" ] || {
+  echo "format-check: no event file (${event:-unset})" >&2
+  exit 2
+}
 
 case "$1" in
   issue)
     check_issue "$(jq -r '.issue.body // ""' "$event")"
-    exit 0 ;;
+    exit 0
+    ;;
   pr)
     if check_pr "$(jq -r '.pull_request.title // ""' "$event")" "$(jq -r '.pull_request.body // ""' "$event")"; then
       echo "Format OK."
     else
       exit 1
-    fi ;;
+    fi
+    ;;
   *)
-    sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 2 ;;
+    sed -n '2,12s/^# \{0,1\}//p' "$0"
+    exit 2
+    ;;
 esac

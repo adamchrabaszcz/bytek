@@ -1,0 +1,6 @@
+# ShellCheck settings (https://www.shellcheck.net). Every script targets bash, 3.2 included.
+shell=bash
+
+# SC2016: "$ won't expand in single quotes". Bytek writes jq programs, GraphQL queries and
+# Markdown (with backticks) in single quotes on purpose; nothing there is meant to expand.
+disable=SC2016
