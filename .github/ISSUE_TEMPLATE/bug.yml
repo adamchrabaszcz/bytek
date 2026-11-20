@@ -6,7 +6,7 @@ body:
     id: what
     attributes:
       label: What and why
-      description: What happens, what should happen instead, and where (OS, terminal app, bash version, Claude Code version). Paste the status line output in a code block if it looks wrong.
+      description: What happens, what should happen instead, and where (OS, terminal app). Paste the output of `bytek doctor` (or `/bytek doctor` in Claude Code) in a code block, which shows the versions and the setup without anything from your settings, and the status line output if it looks wrong.
     validations:
       required: true
   - type: textarea

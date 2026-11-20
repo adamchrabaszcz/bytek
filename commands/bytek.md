@@ -1,6 +1,6 @@
 ---
-description: Control Bytek, the status line companion (setup, uninstall, set, states, help)
-argument-hint: "[setup | uninstall | set <state> [text] | states | help]"
+description: Control Bytek, the status line companion (setup, uninstall, doctor, set, states, help)
+argument-hint: "[setup | uninstall | doctor | set <state> [text] | states | help]"
 ---
 
 Run this command with the Bash tool, exactly as written, with the user's arguments in place of `$ARGUMENTS` (use `help` when there are none):
