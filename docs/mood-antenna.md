@@ -14,7 +14,7 @@ The symbol on top of Bytek's antenna shows the vibe of the work. Claude picks it
 | `curious` | `?` | curious, exploring or figuring something out |
 | `sleepy` | `~` | slow, a long wait or a quiet moment |
 
-`♪` is kept for music that's really playing (#10). Set one yourself with `/bytek addon <name>` in Claude Code, or `bytek addon <name>` in a terminal; `bytek addon` alone lists them and marks the current one.
+`♪` is kept for music that's really playing (#10). Set one yourself with `/bytek addon <name>` in Claude Code, or `bytek addon <name>` in a terminal; `bytek addon` alone lists them and marks the current one. `bytek setup` lets Claude run that command without a permission prompt (one rule in `settings.json`, removed on uninstall); if you set Bytek up before that, run setup once more.
 
 ## How Claude knows
 
@@ -30,7 +30,7 @@ Bytek's hooks remind Claude (`docs/adr/0009-antenna-reminders.md`), as context o
 
 - **With each prompt**, one line: `Bytek's antenna: curious.`
 
-Running `bytek addon` doesn't change what the status line shows: Bytek's hooks ignore their own `addon` command, so the face stays on what Claude was doing. Without auto mode, Claude Code asks for permission each time Claude changes it, until setup allows that one command (#102).
+Running `bytek addon` doesn't change what the status line shows: Bytek's hooks ignore their own `addon` command, so the face stays on what Claude was doing. And it doesn't ask for permission: setup allows that one command (above).
 
 ## Turning the reminders off
 

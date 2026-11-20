@@ -143,6 +143,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/settings.sh
     . "$BYTEK_LIB/settings.sh"
+    # shellcheck source=lib/routines.sh
+    . "$BYTEK_LIB/routines.sh"
     # shellcheck source=lib/doctor.sh
     . "$BYTEK_LIB/doctor.sh"
     doctor_run || exit 1

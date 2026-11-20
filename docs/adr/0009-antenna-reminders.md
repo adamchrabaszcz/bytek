@@ -19,5 +19,5 @@ Every other hook still prints nothing. A file `~/.claude/bytek/config/antenna-re
 ## Consequences
 - The antenna can follow the work, and works for everyone who installs Bytek, without a `CLAUDE.md` snippet (the snippet stays in the docs for those who turn the reminders off).
 - A few lines of context per session and about ten words per prompt.
-- Changing the antenna is a tool call each time; without auto mode that asks for permission unless setup allows the command (#102).
+- Changing the antenna is a tool call each time; setup allows exactly that command, so it asks for no permission (`0010`).
 - Anything new a hook prints needs to stay this small, on these two events, and go through `HOOKS_CONTEXT`; `tests/hooks.bats` checks that the other events print nothing.

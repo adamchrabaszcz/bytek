@@ -73,6 +73,23 @@ One per mood antenna add-on, in the repository; the file name is the add-on's na
 
 The current add-on is named in `$BYTEK_HOME/addon` (below); without it, or when it names no add-on, the antenna shows `heart`.
 
+## Routines config: `$BYTEK_HOME/config/routines`
+
+The user's reminders, written by hand (`examples/routines.example` to start from; the path can be changed with `BYTEK_ROUTINES`). One routine per line, `#` lines and blank lines skipped:
+
+```
+name = schedule | option | option ...
+lunch    = daily 12:30                 | icon bowl | heads_up 10m | clear idle
+training = tue,thu 18:30 | months 4-10 | icon bike | heads_up 30m
+invoice  = monthly last-workday 10:00  | icon invoice | heads_up 1d
+```
+
+- **name:** lowercase letters, digits and `_`, starting with a letter; each name once.
+- **schedule:** `daily`, `weekdays` (Monday to Friday), days (`mon,tue,wed,thu,fri,sat,sun`, comma-separated), `monthly <1-31>` or `monthly last-workday` (the last Monday to Friday of the month; holidays aren't known), followed by times and windows, comma-separated: `10:30, 15:00` or `19:00-20:00`. A window can't cross midnight. A monthly day a month doesn't have (31 in November) is skipped that month.
+- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `icon`, `heads_up`, `clear` and `action` are for the reminders (#97 to #99, #13).
+
+A line Bytek can't read is skipped, so the others still work, and `bytek doctor` names it. The file has no version line: it's written by people, and a later format keeps reading this one.
+
 ## Files in `$BYTEK_HOME`
 
 | Path | Written by | What |
@@ -84,5 +101,5 @@ The current add-on is named in `$BYTEK_HOME/addon` (below); without it, or when 
 | `config/antenna-reminders-off` | the user | while it exists, hooks print no antenna reminder (`docs/mood-antenna.md`) |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
-| `config/` | the user | personal settings for features that need them (routines, places); nothing reads it yet; each feature documents its file here |
+| `config/` | the user | personal settings: `routines` (above), and later others (places); each feature documents its file here |
 | `cache/` | providers | cache files from background providers; none yet (`bounded-contexts.md`) |

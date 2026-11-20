@@ -100,3 +100,12 @@ refute_controls() {
   grep -q 'package-ecosystem: github-actions' "$ROOT/.github/dependabot.yml"
   grep -q 'Report a vulnerability' "$ROOT/SECURITY.md"
 }
+
+@test "escape sequences in the routines config don't reach the terminal" {
+  mkdir -p "$BYTEK_HOME/config"
+  printf '%s\n' $'e = \033[31mred\033[2J 10:00' $'f\033]0;pwned\007 = daily 10:00' \
+    $'g = daily 10:00\033]8;;https://evil.example\033\\ | icon x' $'h = mon\xc2\x9b1A 10:00' >"$BYTEK_HOME/config/routines"
+  run "$BYTEK" doctor
+  assert_output --partial "routines, line 1"
+  refute_controls "$output"
+}
