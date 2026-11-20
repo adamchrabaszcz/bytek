@@ -80,3 +80,14 @@ setup() {
   assert_success
   assert_output --partial "lint: clean"
 }
+
+@test "CI lints with pinned, verified tools, at the versions CONTRIBUTING names" {
+  local wf="$ROOT/.github/workflows/test.yml" v
+  grep -q '^        run: tools/lint.sh$' "$wf" || fail "no CI job runs tools/lint.sh"
+  grep -q 'SHELLCHECK_SHA256: [0-9a-f]\{64\}$' "$wf" || fail "ShellCheck download not checked"
+  grep -q 'SHFMT_SHA256: [0-9a-f]\{64\}$' "$wf" || fail "shfmt download not checked"
+  v=$(sed -n 's/^ *SHELLCHECK_VERSION: v//p' "$wf")
+  grep -q "ShellCheck $v," "$ROOT/CONTRIBUTING.md" || fail "CONTRIBUTING doesn't name ShellCheck $v"
+  v=$(sed -n 's/^ *SHFMT_VERSION: v//p' "$wf")
+  grep -q "shfmt $v," "$ROOT/CONTRIBUTING.md" || fail "CONTRIBUTING doesn't name shfmt $v"
+}
