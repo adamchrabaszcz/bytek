@@ -105,3 +105,19 @@ assert_next() {
   routines_load "$TMP/none"
   assert_equal "$ROUTINES_COUNT|$ROUTINES_ERRORS" "0|"
 }
+
+@test "a * or ? in the config isn't matched against files in the current folder" {
+  mkdir "$TMP/project"
+  touch "$TMP/project/10:00" "$TMP/project/r"
+  cd "$TMP/project"
+  config "a = daily *" "b = mo? 10:00"
+  assert_equal "$ROUTINES_COUNT" 0
+  run printf '%s' "$ROUTINES_ERRORS"
+  assert_line --partial "line 1: a: not a time: *"
+  assert_line --partial "line 2: b: unknown schedule: mo?"
+}
+
+@test "tabs separate like spaces in the config" {
+  config $'lunch\t=\tdaily\t12:30'
+  assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[0]}|${ROUTINES_TIMES[0]}" "1|lunch|750-750"
+}

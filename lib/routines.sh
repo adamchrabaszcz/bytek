@@ -42,7 +42,7 @@ routines_slot() {
 # ROUTINE_KIND, ROUTINE_DAYS and ROUTINE_TIMES (sorted "start-end" minutes); returns 1 with the
 # reason in REPLY.
 routines_schedule() {
-  local word rest slot slots="" sorted="" next placed s day
+  local word rest slot slots="" sorted="" next placed s day days list
   routines_trim "$1"
   word=${REPLY%%[[:space:]]*} rest=${REPLY#"$word"}
   ROUTINE_DAYS=""
@@ -60,7 +60,9 @@ routines_schedule() {
       ;;
     *)
       ROUTINE_KIND=days
-      for day in ${word//,/ }; do
+      # read -a splits without expanding a "*" or "?" into file names from the current folder.
+      IFS=, read -r -a days <<<"$word"
+      for day in "${days[@]}"; do
         case "$day" in
           mon) ROUTINE_DAYS="$ROUTINE_DAYS 1" ;; tue) ROUTINE_DAYS="$ROUTINE_DAYS 2" ;;
           wed) ROUTINE_DAYS="$ROUTINE_DAYS 3" ;; thu) ROUTINE_DAYS="$ROUTINE_DAYS 4" ;;
@@ -72,7 +74,8 @@ routines_schedule() {
       ROUTINE_DAYS="$ROUTINE_DAYS "
       ;;
   esac
-  for slot in ${rest//,/ }; do
+  IFS=", " read -r -a list <<<"$rest"
+  for slot in "${list[@]}"; do
     routines_slot "$slot" || return 1
     slots="$slots $REPLY"
   done
@@ -106,6 +109,10 @@ routines_load() {
   [ -f "$file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
     n=$((n + 1))
+    # The file can come from anywhere: tabs become spaces and other control characters go, so
+    # nothing in it can reach the terminal as an escape sequence (doctor, and #97's reminders).
+    line=${line//$'\t'/ }
+    line=${line//[[:cntrl:]]/}
     routines_trim "$line"
     line=$REPLY
     case "$line" in '' | '#'*) continue ;; esac
