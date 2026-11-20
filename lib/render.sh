@@ -5,7 +5,7 @@
 # Needs: clock, state, addon, routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 RENDER_SPINNER="◜|◝|◞|◟"
-RENDER_REMINDER_ICON="◷"                       # before a routine's reminder, until routines bring their own icons (#12)
+RENDER_REMINDER_ICON="◷"                       # before a routine's reminder when no companion stands in for it (companions/)
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
 RENDER_COMPANION_FORMAT=1                      # the newest companion file format this version reads
@@ -68,6 +68,11 @@ render_companion() {
 # Sets REPLY to the frame of "a|b|c" $1 for tick $2, padded with spaces to its widest frame, so
 # a companion whose frames differ in width (a wagging tail) doesn't shift what follows it.
 render_pick_padded() {
+  # Without a UTF-8 locale lengths are bytes, and padding would shift the frames: no padding.
+  if [ "$BYTEK_UTF8" != 1 ]; then
+    render_pick "$1" "$2"
+    return
+  fi
   local IFS='|' f width=0
   set -f
   # shellcheck disable=SC2206 # splitting on IFS='|' (globbing off) is the point; no mapfile in 3.2
@@ -193,7 +198,8 @@ render_line() {
             ;;
         esac
         text=${text//\{routine\}/${ROUTINES_SHOWN_NAME//_/ }}
-        reminder=$text
+        # A companion file may leave a stage out: then that stage keeps the ◷.
+        if [ -n "$companion" ]; then reminder=$text; else reminder="$RENDER_REMINDER_ICON $text"; fi
       else
         reminder="$RENDER_REMINDER_ICON $text"
       fi

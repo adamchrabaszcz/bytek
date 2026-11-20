@@ -101,3 +101,14 @@ rows_at() {
   run rows_at 19:30
   assert_line --index 0 --partial "◷ walk now, until 20:00"
 }
+
+@test "a stage the companion file leaves out keeps the ◷" {
+  local data="$TMP/data"
+  mkdir -p "$data"
+  cp -R "$ROOT/faces" "$ROOT/addons" "$ROOT/companions" "$data/"
+  printf 'due: (o)\n' >"$data/companions/bare" # no icon: nothing for the heads-up
+  routines "walk = daily 19:00-20:00 | icon bare | heads_up 10m"
+  BYTEK_ROOT=$data run rows_at 18:52
+  assert_line --index 0 " │ ≧ᴗ≦ │  ◷ walk in 8m · editing 3 files"
+  assert_line --index 1 " ╰─┬─┬─╯  ◜ lib/a.ts"
+}

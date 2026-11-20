@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # lib/render.sh: frames, face files, the progress bar and cutting text.
-# shellcheck disable=SC2154 # F_<key> is set by the module under test (render_face)
+# shellcheck disable=SC2154,SC2030,SC2031 # F_<key> is set by the module under test; each test sets its own BYTEK_UTF8
 
 load ../helpers
 
@@ -55,4 +55,12 @@ setup() {
   export BYTEK_UTF8=0
   render_cut "a long status" 6
   assert_equal "$REPLY" "a long status"
+}
+
+@test "companion frames are padded to the widest, except without UTF-8, where lengths are bytes" {
+  render_pick_padded "ab~|ab" 1
+  assert_equal "[$REPLY]" "[ab ]"
+  export BYTEK_UTF8=0
+  render_pick_padded "~\\_/|≈\\_/" 0
+  assert_equal "[$REPLY]" "[~\\_/]"
 }
