@@ -39,8 +39,18 @@ ev() {
   ev 1004 '"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"/repo/b.ts"}'
   ev 1005 '"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"/repo/a.ts"}'
   assert_state s1 state editing
-  assert_state s1 edits 3
   assert_state s1 status "editing 2 files"
+  ev 1010 '"hook_event_name":"Stop"'
+  assert_state s1 arg "3 changes · 10s"
+}
+
+@test "a new prompt counts edits from zero again" {
+  ev 1000 '"hook_event_name":"UserPromptSubmit","prompt":"go"'
+  ev 1001 '"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"/repo/a.ts"}'
+  ev 1002 '"hook_event_name":"Stop"'
+  ev 1003 '"hook_event_name":"UserPromptSubmit","prompt":"again"'
+  ev 1004 '"hook_event_name":"Stop"'
+  assert_state s1 arg "1s"
 }
 
 @test "a test command is testing, then passed" {
@@ -105,34 +115,22 @@ ev() {
   assert_output ""
 }
 
-@test "session end removes the session's state" {
+@test "session end removes the session's state and edit list" {
   ev 1000 '"hook_event_name":"UserPromptSubmit","prompt":"hi"'
+  ev 1001 '"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"/repo/a.ts"}'
   ev 1100 '"hook_event_name":"SessionEnd"'
   [ ! -f "$BYTEK_HOME/state/s1" ] || fail "state file not removed"
+  [ ! -f "$BYTEK_HOME/state/s1.edits" ] || fail "edit list not removed"
 }
 
-@test "hooks running at the same time don't lose updates" {
+@test "edits from hooks running at the same time all count" {
   needs_jq
-  local i files
-  # A wait that never runs out here, so the result depends only on the lock being correct, not
-  # on how busy the machine is. Giving up after the wait is tested in tests/unit/state.bats.
-  export BYTEK_LOCK_WAIT=60
-  hook '{"hook_event_name":"UserPromptSubmit","session_id":"s1"}'
+  local i
+  BYTEK_NOW=1000 hook '{"hook_event_name":"UserPromptSubmit","session_id":"s1"}'
   for i in $(seq 30); do
     hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Edit","tool_input":{"file_path":"/r/f'"$i"'.ts"}}' &
   done
   wait
-  assert_state s1 edits 30
-  files=$(state_of s1 files)
-  files=${files//[!|]/}
-  assert_equal "$((${#files} - 1))" 30
-}
-
-@test "a lock left behind by a crashed hook doesn't block the next ones" {
-  needs_jq
-  mkdir -p "$BYTEK_HOME/state/s1.lock"
-  echo 1000 >"$BYTEK_HOME/state/s1.lock/since"
-  BYTEK_NOW=2000 hook '{"hook_event_name":"UserPromptSubmit","session_id":"s1"}'
-  assert_state s1 state thinking
-  [ ! -e "$BYTEK_HOME/state/s1.lock" ] || fail "lock left behind"
+  BYTEK_NOW=1005 hook '{"hook_event_name":"Stop","session_id":"s1"}'
+  assert_state s1 arg "30 changes · 5s"
 }

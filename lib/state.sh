@@ -1,18 +1,23 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2034 # S_<key> is this module's output, read by render, hooks and bin/bytek
+# shellcheck disable=SC2034 # S_<key> and STATE_EDITS/STATE_FILES are this module's output, read by render, hooks and bin/bytek
 # state: what Bytek is doing, one file per session in $BYTEK_HOME/state/. Hooks write it,
 # the status line reads it.
-# Needs: clock (for lock stamps).
+# Needs: nothing.
+#
+# Hooks can run at the same moment (parallel tools, subagents). There is no lock (no portable,
+# reliable one in bash: docs/adr/0007-no-lock-append-edits.md): the state file holds only what
+# Bytek is doing now, written whole, so the last hook wins; the turn's edits, which must add
+# up, are appended as lines to a list next to it (<session>.edits).
 #
 # State file fields (one "key=value" per line), loaded into S_<key>:
 #   state, arg (fills {arg}), status / detail (override the face's text),
-#   progress (N/M), since (last event), turn_start, edits, files ("|a|b|").
-STATE_KEYS="state arg status detail progress since turn_start edits files"
+#   progress (N/M), since (last event), turn_start.
+STATE_KEYS="state arg status detail progress since turn_start"
 
-# Loads state file $1 into S_<key>; a missing file gives an idle state.
+# Loads state file $1 into S_<key>; a missing file gives an idle state. Keys it doesn't know
+# (such as edits and files, which older versions kept here) are ignored.
 state_load() {
-  S_state="idle" S_arg="" S_status="" S_detail="" S_progress="" S_since=""
-  S_turn_start="" S_edits="" S_files=""
+  S_state="idle" S_arg="" S_status="" S_detail="" S_progress="" S_since="" S_turn_start=""
   [ -f "$1" ] || return 0
   local line key val
   while IFS= read -r line || [ -n "$line" ]; do
@@ -38,40 +43,34 @@ state_write() {
   done >"$tmp" && mv "$tmp" "$1"
 }
 
-# Hooks can run at the same moment (parallel tools, subagents), and each one reads, changes
-# and writes the state file: without a lock, one write overwrites another's update.
-STATE_LOCK_WAIT=${BYTEK_LOCK_WAIT:-2}    # seconds to wait for the lock before going ahead without it
-STATE_LOCK_STALE=${BYTEK_LOCK_STALE:-10} # seconds after which a lock counts as left behind by a crash
-
-# Locks state file $1 for a read-change-write: a "$1.lock" directory, since mkdir is atomic on
-# macOS and Linux (flock isn't on macOS). A lock older than STATE_LOCK_STALE is removed. After
-# STATE_LOCK_WAIT seconds it returns 1 and the caller goes ahead unlocked: a hook must never hang.
-state_lock() {
-  local lock="$1.lock" tries=$((STATE_LOCK_WAIT * 20)) since
-  mkdir -p "${1%/*}" 2>/dev/null
-  while ! mkdir "$lock" 2>/dev/null; do
-    clock_now
-    since=""
-    if [ -f "$lock/since" ]; then
-      # Only a stamp that was really read counts: the owner may release the lock (and the next
-      # owner take it) between the test and the read, and an empty stamp isn't an old one.
-      read -r since <"$lock/since" 2>/dev/null
-      [[ "$since" =~ ^[0-9]+$ ]] && [ $((REPLY - since)) -ge "$STATE_LOCK_STALE" ] && rm -rf "$lock"
-    else
-      # Its owner hasn't stamped it yet, or crashed before it could: stamp it, so it can age.
-      echo "$REPLY" >"$lock/since" 2>/dev/null
-    fi
-    tries=$((tries - 1))
-    [ "$tries" -gt 0 ] || return 1
-    sleep 0.05
-  done
-  clock_now
-  echo "$REPLY" >"$lock/since"
+# Appends file $2 to the edit list of state file $1, one line per edit. A short append is
+# atomic, so edits from hooks running at the same moment all count.
+state_add_edit() {
+  local file=${2//[[:cntrl:]]/}
+  mkdir -p "${1%/*}" && printf '%s\n' "$file" >>"$1.edits"
 }
 
-# Releases the lock on state file $1.
-state_unlock() {
-  rm -rf "$1.lock"
+# Sets STATE_EDITS to the number of edits in the list of state file $1, and STATE_FILES to the
+# number of different files among them.
+state_count_edits() {
+  local line seen="|"
+  STATE_EDITS=0 STATE_FILES=0
+  [ -f "$1.edits" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    STATE_EDITS=$((STATE_EDITS + 1))
+    case "$seen" in
+      *"|$line|"*) ;;
+      *)
+        seen="$seen$line|"
+        STATE_FILES=$((STATE_FILES + 1))
+        ;;
+    esac
+  done <"$1.edits"
+}
+
+# Empties the edit list of state file $1 (a new turn starts, or the session ends).
+state_clear_edits() {
+  rm -f "$1.edits"
 }
 
 # Switches to a new state and clears the previous state's text.
