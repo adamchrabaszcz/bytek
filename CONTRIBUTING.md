@@ -141,7 +141,7 @@ Line coverage runs after a merge, in its own workflow (`.github/workflows/covera
 
 ## Code conventions
 
-- Bash 3.2 compatible (the macOS default): no associative arrays, no `mapfile`, no `${var,,}`.
+- Bash 3.2 compatible (the macOS default): no associative arrays, no `mapfile`, no `${var,,}`. Why bash, and why 3.2: `docs/adr/0003-bash-over-a-compiled-language.md`, `docs/adr/0004-bash-3-2-compatible.md`.
 - **Modules:** the engine lives in `lib/*.sh`, one job per module; `bin/bytek` only sets up and dispatches, loading the modules each command needs. A module defines functions and constants only, with names that start with the module (`state_load`, `RENDER_SPINNER`); the shape is in `docs/patterns/module.md`, the reasons in `docs/adr/0002-engine-modules.md`. `tests/modules.bats` checks it.
 - The render path (`bytek render`) reads only local files: no network, no `jq`, as few subprocesses as possible, well under 50 ms. Anything slow (weather, music, git) runs in the background and leaves a cache file.
 - Hooks print nothing to stdout and always exit 0: some hooks' output reaches Claude's context, and a failing hook must never block a tool call.
@@ -150,7 +150,7 @@ Line coverage runs after a merge, in its own workflow (`.github/workflows/covera
 - GitHub Actions are pinned to a full commit SHA with the version in a comment (`uses: actions/checkout@<sha> # v4.4.0`); Dependabot proposes updates. Dependabot's pull requests are the one exception to "every pull request closes an issue".
 - Art and behaviour live in data files (one file per item); the engine reads them. A new face, add-on, outfit or companion should not need an engine change.
 - Optional features (macOS Shortcuts, Music) degrade cleanly when the tool isn't there.
-- jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and line coverage can only count the first line of a multi-line command.
+- jq programs longer than one line live in `lib/*.jq` and run with `jq -f`, not as multi-line strings in bash: they're easier to read, and line coverage can only count the first line of a multi-line command (`docs/adr/0006-jq-programs-in-files.md`).
 - **Shell options:** every script declares `errexit`, `nounset` and `pipefail` before its first command (`set +o errexit +o nounset +o pipefail`, or `-o errexit` where it should stop on errors), instead of inheriting them. A parent that exports its options (bashcov does, to trace every script) would otherwise switch on strict modes a script wasn't written for. `tests/shell-options.bats` checks it.
 - ShellCheck findings are fixed, not silenced. When the flagged code is intended (e.g. splitting on `IFS='|'` on purpose), disable that one check on that one line with the reason: `# shellcheck disable=SC2206 # splitting on '|' is the point`. Repository-wide exceptions live in `.shellcheckrc`, each with its reason.
 - Comments explain *why*, not *what*.

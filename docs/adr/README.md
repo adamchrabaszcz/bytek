@@ -28,3 +28,7 @@ What becomes easier, what becomes harder, what we now have to keep doing.
 
 - [0001. Record architecture decisions](0001-record-architecture-decisions.md)
 - [0002. The engine is split into modules](0002-engine-modules.md)
+- [0003. Bash, not a compiled language](0003-bash-over-a-compiled-language.md)
+- [0004. Compatible with bash 3.2](0004-bash-3-2-compatible.md)
+- [0005. Bytek edits settings.json itself](0005-bytek-edits-settings-json.md)
+- [0006. JSON through jq, with programs in lib/*.jq](0006-jq-programs-in-files.md)
