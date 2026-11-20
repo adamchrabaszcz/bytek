@@ -33,7 +33,7 @@ load_module() {
   # shellcheck disable=SC2329 # called by the modules, not here
   die() {
     printf 'bytek: %s\n' "$1" >&2
-    return 1
+    exit 1 # like bin/bytek's; a test that expects it calls through `run`
   }
   for m in "$@"; do
     # shellcheck source=/dev/null # one of lib/*.sh, named by the test

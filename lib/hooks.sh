@@ -4,6 +4,10 @@
 # hooks (UserPromptSubmit, SessionStart) would be added to Claude's context.
 # Needs: clock, state; from bin/bytek: BYTEK_ROOT, BYTEK_HOME.
 
+# Bytek's own command Claude runs to set the mood antenna, alone: "[path/]bytek addon <name>".
+# Combined with anything else (&&, ;, |), the command shows as usual.
+HOOKS_OWN_RE='^[[:space:]]*[^[:space:];&|]*bytek"?[[:space:]]+addon([[:space:]]+[a-z-]+)?[[:space:]]*$'
+
 # Bash commands that count as running tests (extended regex, override with BYTEK_TEST_PATTERN).
 HOOKS_TEST_RE=${BYTEK_TEST_PATTERN:-'(^|[;&|(]|[[:space:]])(npm (run )?test|npm t|yarn (run )?test|pnpm (run )?test|bun test|npx (jest|vitest|mocha)|jest|vitest|mocha|pytest|python3? -m (pytest|unittest)|(vendor/bin/)?(phpunit|pest)|go test|cargo test|mvn.* (test|verify)|(\./)?gradlew? test|rspec|mix test|dotnet test|node --test|deno test|make (test|check)|[^[:space:]]*tests?/[^[:space:]]*\.sh)'}
 
@@ -103,6 +107,8 @@ hooks_apply() {
           else state_to editing "$file"; fi
           ;;
         Bash)
+          # Claude setting the mood antenna isn't news for the status line: keep the face.
+          [[ "$cmd" =~ $HOOKS_OWN_RE ]] && return 0
           if [[ "$cmd" =~ $HOOKS_TEST_RE ]]; then
             state_to testing
           else state_to thinking "" "running a command" "\$ $cmd"; fi
