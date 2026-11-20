@@ -111,7 +111,7 @@ ev() {
   run hook 'not json'
   assert_success
   assert_output ""
-  for event in PreToolUse PostToolUse PostToolUseFailure PermissionRequest Notification Stop SessionEnd; do
+  for event in PreToolUse PostToolUse PostToolUseFailure PermissionRequest PermissionDenied Notification Stop SessionEnd; do
     run ev 1060 '"hook_event_name":"'"$event"'","tool_name":"Read","tool_input":{"file_path":"/repo/a.ts"}'
     assert_success
     assert_output ""
