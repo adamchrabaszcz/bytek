@@ -71,3 +71,25 @@ setup() {
   run cat "$TMP/state/s1.edits"
   assert_output "a[31m.tsb.ts"
 }
+
+@test "a state file starts with its format version" {
+  state_load /dev/null
+  state_write "$TMP/s1"
+  run head -1 "$TMP/s1"
+  assert_output "format=1"
+}
+
+@test "a state file without a format line is format 1" {
+  printf 'state=reading\narg=a.ts\n' >"$TMP/s1"
+  state_load "$TMP/s1"
+  assert_equal "$S_state|$S_arg|$STATE_NEWER" "reading|a.ts|"
+}
+
+@test "a state file in a newer or unreadable format loads as idle and is marked" {
+  local format
+  for format in 2 x; do
+    printf 'format=%s\nstate=reading\narg=a.ts\n' "$format" >"$TMP/s1"
+    state_load "$TMP/s1"
+    assert_equal "$S_state|$S_arg|$STATE_NEWER" "idle||1"
+  done
+}

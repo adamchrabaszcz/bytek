@@ -33,3 +33,4 @@ What becomes easier, what becomes harder, what we now have to keep doing.
 - [0005. Bytek edits settings.json itself](0005-bytek-edits-settings-json.md)
 - [0006. JSON through jq, with programs in lib/*.jq](0006-jq-programs-in-files.md)
 - [0007. No lock on state files: edits are appended to a list](0007-no-lock-append-edits.md)
+- [0008. Files that outlive a version carry a format version](0008-versioned-file-formats.md)

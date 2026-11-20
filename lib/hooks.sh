@@ -70,6 +70,8 @@ hooks_apply() {
   clock_now
   now=$REPLY
   state_load "$f"
+  # Written by a newer Bytek, in a format this one doesn't know: leave it as it is.
+  [ -n "$STATE_NEWER" ] && return 0
 
   case "$event" in
     SessionStart)
