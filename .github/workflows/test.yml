@@ -76,8 +76,9 @@ jobs:
       - name: Coverage (bashcov)
         run: |
           set -o pipefail
-          # Tracing slows every render down; the test job checks the speed budget.
-          BYTEK_SKIP_SPEED=1 bundle exec bashcov --root "$PWD" -- tests/run.sh
+          # BYTEK_COVERAGE=1: tests that can't run or add nothing under tracing skip themselves
+          # (the speed budget, tests/run.sh's own tests). The files run in parallel, one per core.
+          BYTEK_COVERAGE=1 bundle exec bashcov --root "$PWD" -- tests/run.sh -j "$(nproc)"
           # Every script must show coverage, so a measurement that silently stops fails the build.
           tools/coverage-summary.sh coverage --require bin/bytek tools/*.sh install.sh uninstall.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov

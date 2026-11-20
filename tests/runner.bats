@@ -6,6 +6,9 @@ load helpers
 RUN="$ROOT/tests/run.sh"
 
 setup() {
+  # Under coverage these run bats inside bats, all traced, for tests/run.sh, which the report
+  # leaves out: minutes of tracing for no coverage.
+  [ "${BYTEK_COVERAGE:-}" = 1 ] && skip "tests/run.sh is not in the coverage report"
   bytek_setup
   mkdir "$TMP/pass" "$TMP/mixed"
   printf '@test "fine" { true; }\n@test "noted" { echo "# 12 ms" >&3; }\n@test "later" { skip "not yet"; }\n' >"$TMP/pass/a.bats"
@@ -34,4 +37,24 @@ setup() {
   run env -u GITHUB_STEP_SUMMARY "$RUN" "$TMP/pass"
   assert_success
   assert_output "a.bats: 2 passed, 1 skipped (12 ms)"
+}
+
+@test "-j runs files at the same time and still reports them in file order" {
+  # a.bats waits for a mark that only b.bats leaves: one at a time, a.bats would give up.
+  mkdir "$TMP/together"
+  printf '@test "waits" { for i in $(seq 50); do [ -f "$MARK" ] && return 0; sleep 0.1; done; false; }\n' >"$TMP/together/a.bats"
+  printf '@test "marks" { touch "$MARK"; }\n' >"$TMP/together/b.bats"
+  MARK="$TMP/mark" run "$RUN" -j 2 "$TMP/together"
+  assert_success
+  assert_output "a.bats: 1 passed
+b.bats: 1 passed"
+}
+
+@test "-j needs a positive number" {
+  for bad in "-j" "-j 0" "-j x" "--fast"; do
+    # shellcheck disable=SC2086 # splitting "-j 0" into two arguments is the point
+    run "$RUN" $bad "$TMP/pass"
+    assert_failure 2
+    assert_output --partial "usage: tests/run.sh [-j N] [dir]"
+  done
 }
