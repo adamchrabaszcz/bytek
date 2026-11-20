@@ -14,7 +14,7 @@ You'll get an answer within a week. Fixes are released as a patch version and cr
 - Settings are backed up before every change, edited through a checked temporary file, and only Bytek's own entries are removed on uninstall.
 - The render path reads local files only; it makes no network calls.
 - The debug log is off by default. When on, it leaves out prompts and file contents and keeps its size bounded.
-- GitHub Actions in this repository are pinned to commit SHAs. CI's two tokens (`CODECOV_TOKEN` for coverage, `CLAUDE_CODE_OAUTH_TOKEN` for the AI review) are repository secrets, never in files. The AI review can comment but not push, and only people with write access to the repository can start it with `@claude`.
+- GitHub Actions in this repository are pinned to commit SHAs. CI's two tokens (`CODECOV_TOKEN` for coverage, `CLAUDE_CODE_OAUTH_TOKEN` for the AI review) are repository secrets, never in files. The AI review can comment but not push, and only the owner, members and collaborators can start it with `@claude` (checked in the workflow and by the action); pull requests from forks get no automatic review.
 
 ## Supported versions
 
