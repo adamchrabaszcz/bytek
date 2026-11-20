@@ -24,3 +24,10 @@ load helpers
   assert_success
   assert_output --partial "╭──┴──╮"
 }
+
+@test "unit tests run modules with Bytek's shell options when a parent exports strict ones" {
+  # bashcov exports its options; unit tests load modules into the test shell, where bin/bytek's
+  # options must apply, as in a real run (#81).
+  run env SHELLOPTS=nounset "$ROOT/tests/run.sh" "$ROOT/tests/unit"
+  assert_success
+}

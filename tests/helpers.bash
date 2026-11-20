@@ -22,11 +22,13 @@ bytek_setup() {
 }
 
 # Loads lib/<name>.sh for each name into the test, for unit tests that call module functions
-# directly. Sets what bin/bytek gives every module: BYTEK_ROOT, BYTEK_UTF8, die.
-# bats runs tests with errexit on and Bytek runs without it, so call a function whose commands
-# may fail on purpose through `run`.
+# directly. Sets what bin/bytek gives every module: BYTEK_ROOT, BYTEK_UTF8, die, and its shell
+# options (nounset and pipefail off), whatever a parent exported (bashcov exports its own).
+# bats needs errexit on to fail a test, so call a function whose commands may fail on purpose
+# through `run`.
 load_module() {
   local m
+  set +o nounset +o pipefail
   export BYTEK_ROOT=$ROOT BYTEK_UTF8=1
   # shellcheck disable=SC2329 # called by the modules, not here
   die() {
