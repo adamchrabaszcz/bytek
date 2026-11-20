@@ -59,8 +59,9 @@ CI (`.github/workflows/test.yml`) runs lint and the tests on Linux and on macOS 
 
 - **Bash 3.2** (macOS's own): no associative arrays, no `mapfile`, no `${var,,}`, no `case` inside `$( )`.
 - **Render path** (`bytek render`): local files only, no network, no `jq`, as few subprocesses as possible; 50 ms budget, checked by `tests/speed.bats`. Return values through `REPLY` (`docs/patterns/`).
+- **Modules:** the engine is `lib/*.sh`, one job each; `bin/bytek` only dispatches. Functions and constants only, named after the module (`state_load`, `RENDER_SPINNER`); new code goes into the module whose job it is (`docs/patterns/module.md`).
 - **Hooks** print nothing to stdout and always exit 0.
-- **Outside text is untrusted:** hook fields, command-line text and caches go through the control-character filter (`lib/hook-fields.jq`, `write_state`); new inputs get a case in `tests/security.bats`.
+- **Outside text is untrusted:** hook fields, command-line text and caches go through the control-character filter (`lib/hook-fields.jq`, `state_write`); new inputs get a case in `tests/security.bats`.
 - **Shell options:** every script declares `set ±o errexit ±o nounset ±o pipefail` before its first command (`tests/shell-options.bats`).
 - **jq programs** longer than one line live in `lib/*.jq`.
 - **Art:** single-width characters only, no emoji; faces are exactly 3 characters; the antenna stick sits in column 5. One data file per face, outfit or companion; new art shouldn't need an engine change.

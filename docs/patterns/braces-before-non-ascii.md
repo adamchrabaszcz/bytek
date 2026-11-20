@@ -11,7 +11,7 @@ bar="${bar}▰"
 REPLY="${text}…"
 ```
 
-Used by the progress bar in `bin/bytek`. Text with a space or ASCII punctuation after the name (`"$n changes · $time"`) needs no braces.
+Used by the progress bar (`render_bar` in `lib/render.sh`). Text with a space or ASCII punctuation after the name (`"$n changes · $time"`) needs no braces.
 
 ## Anti-pattern
 The bare name:

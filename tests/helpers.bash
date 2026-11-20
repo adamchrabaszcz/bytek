@@ -1,12 +1,13 @@
-# Shared setup for Bytek's bats tests. A test file starts with `load helpers`.
-# Every test gets a fresh temp folder with its own BYTEK_HOME and settings file, so tests
-# never touch the real ~/.claude and can run in any order.
+# Shared setup for Bytek's bats tests. A test file starts with `load helpers` (`load
+# ../helpers` in tests/unit/). Every test gets a fresh temp folder with its own BYTEK_HOME and
+# settings file, so tests never touch the real ~/.claude and can run in any order.
 
-ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd -P)"
+# Found from this file, not from the test file, so tests in subfolders work too.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 BYTEK="$ROOT/bin/bytek"
 
-load "bats/support/load"
-load "bats/assert/load"
+load "$ROOT/tests/bats/support/load"
+load "$ROOT/tests/bats/assert/load"
 
 setup() {
   bytek_setup
@@ -18,6 +19,24 @@ bytek_setup() {
   export BYTEK_HOME="$TMP/home"
   export BYTEK_SETTINGS="$TMP/settings.json"
   mkdir -p "$BYTEK_HOME"
+}
+
+# Loads lib/<name>.sh for each name into the test, for unit tests that call module functions
+# directly. Sets what bin/bytek gives every module: BYTEK_ROOT, BYTEK_UTF8, die.
+# bats runs tests with errexit on and Bytek runs without it, so call a function whose commands
+# may fail on purpose through `run`.
+load_module() {
+  local m
+  export BYTEK_ROOT=$ROOT BYTEK_UTF8=1
+  # shellcheck disable=SC2329 # called by the modules, not here
+  die() {
+    printf 'bytek: %s\n' "$1" >&2
+    return 1
+  }
+  for m in "$@"; do
+    # shellcheck source=/dev/null # one of lib/*.sh, named by the test
+    . "$ROOT/lib/$m.sh"
+  done
 }
 
 # Skips the test when jq is missing (hooks, setup and the tools need it).
