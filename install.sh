@@ -2,7 +2,7 @@
 # Installs Bytek without the plugin system: copies this checkout to ~/.claude/bytek/app,
 # then makes it the status line and adds its hooks (settings.json is backed up first).
 # Usage: ./install.sh
-set -e
+set -o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
 
 src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 home="${BYTEK_HOME:-$HOME/.claude/bytek}"

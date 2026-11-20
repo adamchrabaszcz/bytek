@@ -7,6 +7,8 @@
 #   tools/release-marks.sh <version> <previous tag or ""> <sha>   GH_TOKEN, GITHUB_REPOSITORY set
 #   tools/release-marks.sh --prs                                   commit subjects on stdin; for tests
 
+set +o errexit +o nounset +o pipefail # declared, not inherited (CONTRIBUTING, "Shell options")
+
 # Pull request numbers from merge commit subjects ("Merge pull request #12 from …") and
 # squash merges ("feat: … (#12)"), oldest first, no repeats.
 pr_numbers() {
