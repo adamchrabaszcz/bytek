@@ -54,7 +54,7 @@ Data sits beside the code, read by the modules: `faces/` (one file per state), `
 
 ## The render budget
 
-The status line redraws every second, so a render must take well under **50 ms** on average; `tests/speed.bats` measures it through the real `bin/bytek` on macOS's bash 3.2 and Linux and fails above it (a render takes about 20 to 25 ms). That is why the render path:
+The status line redraws every second, so a render must take well under **50 ms** on average (about 25 to 30 ms on a Mac). Starting a program is what makes bash slow, so `tests/speed.bats` counts them: a render may start `dirname`, `cat` and `date`, once each, and fails, naming it, on anything more. It also measures the time through the real `bin/bytek`: on CI as a note only, because shared runners vary too much (29 to 54 ms on macOS for the same code), and as a failing check on your machine. That is why the render path:
 
 - reads only local files: no network, no jq;
 - avoids subprocesses: functions return through `REPLY` instead of `$( )` (`docs/patterns/reply-return-value.md`);
