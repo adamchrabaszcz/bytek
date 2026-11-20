@@ -11,6 +11,7 @@ Files that outlive a Bytek version carry a format version, so a newer Bytek can 
 | state file | `format=1`, its first line | format 1 | loads as idle; hooks leave the file alone |
 | face file | `format: 1`, optional | format 1 | the idle face is shown instead |
 | add-on file | `format: 1`, optional | format 1 | the plain heart is shown instead |
+| companion file | `format: 1`, optional | format 1 | the reminder shows without its companion, with `◷` |
 | saved status line | `{"format": 1, "statusLine": ...}` | the status line itself (saved before formats existed) | uninstall puts nothing back and keeps the file |
 
 Changing a format means a new version number, and reading the older one (a migration) for as long as such files can still exist. Removing a field, or giving one a new meaning, is a breaking change: a `!` in its commit type and a `BREAKING CHANGE:` footer (CONTRIBUTING, "Commits"). Adding a field older versions can ignore needs neither.
@@ -86,11 +87,29 @@ invoice  = monthly last-workday 10:00  | icon invoice | heads_up 1d
 
 - **name:** lowercase letters, digits and `_`, starting with a letter; each name once.
 - **schedule:** `daily`, `weekdays` (Monday to Friday), days (`mon,tue,wed,thu,fri,sat,sun`, comma-separated), `monthly <1-31>` or `monthly last-workday` (the last Monday to Friday of the month; holidays aren't known), followed by times and windows, comma-separated: `10:30, 15:00` or `19:00-20:00`. A window can't cross midnight. A monthly day a month doesn't have (31 in November) is skipped that month.
-- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `heads_up 10m` (or `1h`, `1d`) shows a reminder that long before; `overdue 30m` how long it stays after its time or window (default 20 minutes); anything else there (`10min`, `1hour`) makes the line one Bytek can't read. `icon`, `clear` and `action` are for later steps (#12, #98, #99, #13).
+- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `heads_up 10m` (or `1h`, `1d`) shows a reminder that long before; `overdue 30m` how long it stays after its time or window (default 20 minutes); anything else there (`10min`, `1hour`) makes the line one Bytek can't read. `icon dog` puts a companion next to Bytek (`companions/<name>`, below; a name with no companion file keeps the `◷`). `clear` and `action` are for later steps (#98, #99, #13).
 
 **On the status line**, the most urgent reminder goes first in the status row, what Claude is doing after it: `◷ lunch in 8m · editing 3 files` (heads-up), `◷ lunch now` or `◷ walk now, until 20:00` (due), `◷ lunch 15m ago` in bold (overdue), with `+1` when more are active (the detail row stays on what Claude is doing). A time is due for its whole minute, a window through its last one. Overdue beats due beats a heads-up; among equals, the one that starts first. In a narrow terminal the work status is shortened, not the reminder. Until clearing comes (#98, #99) a reminder stays for its overdue time; one whose time passed before midnight isn't shown after it.
 
 A line Bytek can't read is skipped, so the others still work, and `bytek doctor` names it. The file has no version line: it's written by people, and a later format keeps reading this one.
+
+## Companion file: `companions/<name>`
+
+One per companion, in the repository; a routine picks one with `icon <name>`. Plain text, `key: value` lines; lines starting with `#` are comments; every key is optional.
+
+| Key | Meaning | Example |
+| --- | --- | --- |
+| `format` | the file's format version; missing means 1 | `1` |
+| `icon` | next to Bytek during the heads-up | `(ᵔᴥᵔ)` |
+| `due` | next to Bytek while due, `\|`-separated animation steps | `(ᵔᴥᵔ)~\|(ᵔᴥᵔ)` |
+| `due_text` | replaces the reminder's text while due; `{routine}` is the routine's name | `{routine} time!` |
+| `due_face` | Bytek's face while due, `\|`-separated steps of 3 characters | `^ᴗ^\|ᵔᴗᵔ` |
+| `due_thought` | Bytek's thought while due | `!` |
+| `leash` | `yes`: while due, the companion hangs on a leash from the box (`╮` and `╰`) | `yes` |
+| `overdue` | next to Bytek when overdue, `\|`-separated steps | `(•ᴥ•)?\|(•ᴥ•)` |
+| `overdue_text` | replaces the reminder's text when overdue | `waiting by the door` |
+
+The companion stands at the start of the detail row, Claude's detail after it; the reminder's text stays first in the status row. Steps of different widths are padded to the widest, so what follows doesn't move. A narrow terminal cuts Claude's detail, never the companion.
 
 ## Files in `$BYTEK_HOME`
 

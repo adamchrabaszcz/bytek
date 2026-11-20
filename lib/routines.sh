@@ -104,9 +104,9 @@ routines_schedule() {
 # read are skipped and listed in ROUTINES_ERRORS ("line 3: reason"), so one broken line never
 # breaks the status line. A routine with the option "disable" is left out.
 routines_load() {
-  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled heads late
+  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled heads late icon
   ROUTINES_NAME=() ROUTINES_KIND=() ROUTINES_DAYS=() ROUTINES_TIMES=() ROUTINES_MONTHS=() ROUTINES_OPTIONS=()
-  ROUTINES_HEADS=() ROUTINES_LATE=()
+  ROUTINES_HEADS=() ROUTINES_LATE=() ROUTINES_ICON=()
   ROUTINES_COUNT=0 ROUTINES_ERRORS=""
   [ -f "$file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
@@ -139,12 +139,20 @@ routines_load() {
       ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: $REPLY"$'\n'
       continue
     fi
-    months="" disabled="" options="" heads=0 late=$ROUTINES_OVERDUE
+    months="" disabled="" options="" heads=0 late=$ROUTINES_OVERDUE icon=""
     for field in "${fields[@]:1}"; do
       routines_trim "$field"
       option=$REPLY
       case "$option" in
         disable) disabled=1 ;;
+        icon\ *)
+          icon=${option#icon }
+          [[ "$icon" =~ ^[a-z][a-z-]*$ ]] || {
+            ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: icon needs a name like dog or meal"$'\n'
+            continue 2
+          }
+          options="$options|$option"
+          ;;
         heads_up\ * | overdue\ *)
           routines_seconds "${option#* }" || {
             ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: ${option%% *} needs a time like 10m, 2h or 1d"$'\n'
@@ -175,6 +183,7 @@ routines_load() {
     ROUTINES_OPTIONS[ROUTINES_COUNT]=${options#|}
     ROUTINES_HEADS[ROUTINES_COUNT]=$heads
     ROUTINES_LATE[ROUTINES_COUNT]=$late
+    ROUTINES_ICON[ROUTINES_COUNT]=$icon
     ROUTINES_COUNT=$((ROUTINES_COUNT + 1))
   done <"$file"
 }
@@ -294,7 +303,7 @@ routines_until() {
 # today's midnight isn't seen as overdue.
 routines_reminder() {
   local i now=$CLOCK_EPOCH start end heads late rank stage best=0 first=0 count=0 name text minute
-  ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0
+  ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0 ROUTINES_SHOWN_ICON="" ROUTINES_SHOWN_NAME=""
   for ((i = 0; i < ROUTINES_COUNT; i++)); do
     heads=${ROUTINES_HEADS[i]} late=${ROUTINES_LATE[i]}
     # From now minus the overdue time, so an occurrence that has just passed is still found.
@@ -334,7 +343,7 @@ routines_reminder() {
         text="$name $REPLY ago"
         ;;
     esac
-    ROUTINES_TEXT=$text ROUTINES_STAGE=$stage
+    ROUTINES_TEXT=$text ROUTINES_STAGE=$stage ROUTINES_SHOWN_ICON=${ROUTINES_ICON[i]} ROUTINES_SHOWN_NAME=${ROUTINES_NAME[i]}
   done
   [ "$count" -gt 0 ] && ROUTINES_MORE=$((count - 1))
   return 0

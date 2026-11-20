@@ -50,7 +50,7 @@ From the bottom up; a module uses only modules below it:
 4. **doctor**: checks an installation, using settings to recognise Bytek in `settings.json`.
 5. **bin/bytek**: paths, `die`, the small commands (`set`, `states`, `locale`), dispatch.
 
-Data sits beside the code, read by the modules: `faces/` (one file per state), `hooks/hooks.json` (the hooks the plugin and `setup --hooks` install). The file formats are in `data-files.md`; who owns what in `bounded-contexts.md`.
+Data sits beside the code, read by the modules: `faces/` (one file per state), `addons/` (the mood antenna), `companions/` (next to Bytek for a routine), `hooks/hooks.json` (the hooks the plugin and `setup --hooks` install). The file formats are in `data-files.md`; who owns what in `bounded-contexts.md`.
 
 ## The render budget
 
