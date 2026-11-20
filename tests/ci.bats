@@ -44,7 +44,7 @@ triggers() {
 @test "the coverage job installs locked gems from the cache and requires every script" {
   run job coverage.yml coverage
   assert_output --partial "bundler-cache: true"
-  assert_output --partial "--require bin/bytek tools/*.sh install.sh uninstall.sh"
+  assert_output --partial "--require bin/bytek lib/*.sh tools/*.sh install.sh uninstall.sh"
   refute_output --partial "gem install"
 }
 

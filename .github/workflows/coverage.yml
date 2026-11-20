@@ -37,7 +37,7 @@ jobs:
           # (the speed budget, tests/run.sh's own tests). The files run in parallel, one per core.
           BYTEK_COVERAGE=1 bundle exec bashcov --root "$PWD" -- tests/run.sh -j "$(nproc)"
           # Every script must show coverage, so a measurement that silently stops fails the run.
-          tools/coverage-summary.sh coverage --require bin/bytek tools/*.sh install.sh uninstall.sh | tee -a "$GITHUB_STEP_SUMMARY"
+          tools/coverage-summary.sh coverage --require bin/bytek lib/*.sh tools/*.sh install.sh uninstall.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:

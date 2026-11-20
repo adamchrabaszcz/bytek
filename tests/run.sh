@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs every bats test file in a directory (default: tests/) with the bats vendored in
-# tests/bats/ and fails if any test fails. Prints one line per file, in file order, and the
+# Runs every bats test file in a directory (default: tests/) and its unit/ folder with the
+# bats vendored in tests/bats/ and fails if any test fails. Prints one line per file, in file order, and the
 # full bats output for a file with failures. In GitHub Actions ($GITHUB_STEP_SUMMARY set) it
 # also writes a table of files, results and notes (lines a test writes as "# ..." to fd 3).
 # Usage: tests/run.sh [-j N] [dir]
@@ -35,22 +35,35 @@ bats="$here/bats/core/bin/bats"
 results=$(mktemp -d "${TMPDIR:-/tmp}/bytek-run.XXXXXX") || exit 2
 trap 'rm -rf "$results"' EXIT
 
-# Runs one file, leaving its TAP output in $results/<name>.out and then "ok" or "failed" in
-# .result; .result appears (renamed into place) only once the file is done.
+# The test files: integration tests first, then unit tests (unit/<module>.bats).
+files() {
+  local t
+  for t in "$dir"/*.bats "$dir"/unit/*.bats; do
+    [ -f "$t" ] && printf '%s\n' "$t"
+  done
+}
+
+# Sets REPLY to the file's name as reported ("hooks.bats", "unit/state.bats").
+name_of() { REPLY=${1#"$dir"/}; }
+
+# Runs one file, leaving its TAP output in $results/<key>.out and then "ok" or "failed" in
+# .result; .result appears (renamed into place) only once the file is done. The key is the
+# reported name with "/" as "-", so unit/state.bats can't clash with a state.bats.
 run_file() {
-  local name=${1##*/} result=ok
-  "$bats" --tap "$1" >"$results/$name.out" 2>&1 || result=failed
-  echo "$result" >"$results/$name.tmp" && mv "$results/$name.tmp" "$results/$name.result"
+  local key result=ok
+  name_of "$1"
+  key=${REPLY//\//-}
+  "$bats" --tap "$1" >"$results/$key.out" 2>&1 || result=failed
+  echo "$result" >"$results/$key.tmp" && mv "$results/$key.tmp" "$results/$key.result"
 }
 
 # Starts the files in the background, at most $parallel at a time (bash 3.2 has no `wait -n`,
 # so a free slot is found by counting the running jobs), while the loop below reports them.
 (
-  for t in "$dir"/*.bats; do
-    [ -f "$t" ] || continue
+  while IFS= read -r t; do
     while [ "$(jobs -pr | wc -l)" -ge "$parallel" ]; do sleep 0.1; done
     run_file "$t" &
-  done
+  done < <(files) # not `files | while`: a piped loop's jobs aren't this shell's to wait for
   wait
 ) &
 launcher=$!
@@ -59,17 +72,17 @@ launcher=$!
 # so if it's gone and a result is still missing, that file never finished.
 status=0
 rows=""
-for t in "$dir"/*.bats; do
-  [ -f "$t" ] || continue
-  name=${t##*/}
-  until [ -f "$results/$name.result" ] || ! kill -0 "$launcher" 2>/dev/null; do sleep 0.1; done
-  if [ -f "$results/$name.result" ]; then
-    result=$(cat "$results/$name.result")
+while IFS= read -r t; do
+  name_of "$t"
+  name=$REPLY key=${REPLY//\//-}
+  until [ -f "$results/$key.result" ] || ! kill -0 "$launcher" 2>/dev/null; do sleep 0.1; done
+  if [ -f "$results/$key.result" ]; then
+    result=$(cat "$results/$key.result")
   else
     result=failed
-    echo "tests/run.sh: $name never finished" >>"$results/$name.out"
+    echo "tests/run.sh: $name never finished" >>"$results/$key.out"
   fi
-  out=$(cat "$results/$name.out" 2>/dev/null)
+  out=$(cat "$results/$key.out" 2>/dev/null)
   [ "$result" = ok ] || status=1
   passed=$(printf '%s\n' "$out" | grep -E '^ok ' | grep -vc '# skip')
   skipped=$(printf '%s\n' "$out" | grep -E '^ok .*# skip' -c)
@@ -84,7 +97,7 @@ for t in "$dir"/*.bats; do
   [ "$result" = ok ] || printf '%s\n' "$out" | sed 's/^/    /'
   rows="$rows| \`$name\` | $result | $counts | $note |
 "
-done
+done < <(files)
 wait
 
 if [ -n "$GITHUB_STEP_SUMMARY" ]; then

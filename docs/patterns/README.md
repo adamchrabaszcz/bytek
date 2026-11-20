@@ -20,3 +20,4 @@ What it replaces, and what goes wrong with it.
 ## Patterns
 
 - [Return values through REPLY](reply-return-value.md): functions on the render path set `REPLY` instead of printing into `$( )`.
+- [A module](module.md): engine code in `lib/<name>.sh`, functions and constants named after the module, nothing run on load.

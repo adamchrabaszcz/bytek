@@ -27,3 +27,4 @@ What becomes easier, what becomes harder, what we now have to keep doing.
 ## Records
 
 - [0001. Record architecture decisions](0001-record-architecture-decisions.md)
+- [0002. The engine is split into modules](0002-engine-modules.md)
