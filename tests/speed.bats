@@ -1,10 +1,17 @@
 #!/usr/bin/env bats
 # The render path stays inside its time budget: the status line redraws every second, so one
 # render must take well under BYTEK_RENDER_BUDGET_MS (default 50 ms) on average. Renders every
-# state, with a long text that gets cut, through the real bin/bytek.
+# state, with a long text that gets cut, through the real bin/bytek, with the example routines
+# configured (the worst case: every render reads them and works out the next reminder).
 # Skipped under coverage (BYTEK_COVERAGE=1): bashcov's tracing slows everything down.
 
 load helpers
+
+setup() {
+  bytek_setup
+  mkdir -p "$BYTEK_HOME/config"
+  cp "$ROOT/examples/routines.example" "$BYTEK_HOME/config/routines"
+}
 
 # Renders every state $1 times; writes the number of renders to $TMP/count.
 render_all() {

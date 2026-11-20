@@ -2,9 +2,10 @@
 # shellcheck disable=SC2154 # S_<key> comes from lib/state.sh (state_load)
 # render: draws the status line from a session's state and its face file. This is the render
 # path: local files only, no jq, as few subprocesses as possible (50 ms budget).
-# Needs: clock, state, addon; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
+# Needs: clock, state, addon, routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 RENDER_SPINNER="◜|◝|◞|◟"
+RENDER_REMINDER_ICON="◷"                       # before a routine's reminder, until routines bring their own icons (#12)
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
 
@@ -78,8 +79,14 @@ render_line() {
   re='"session_id"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_-]+)"'
   [[ "$json" =~ $re ]] && session=${BASH_REMATCH[1]}
 
-  clock_now
-  now=$REPLY
+  # With routines configured, the one date call also gives the date fields they need.
+  if [ -f "$ROUTINES_FILE" ]; then
+    clock_fields
+    now=$CLOCK_EPOCH
+  else
+    clock_now
+    now=$REPLY
+  fi
   tick=$now
 
   state_file="$BYTEK_HOME/state/$session"
@@ -119,10 +126,27 @@ render_line() {
   esac
   detail=${detail//\{arg\}/$S_arg}
 
-  # The bot and its gaps take 10 columns; keep the text inside the terminal.
+  # A routine's reminder (lib/routines.sh) goes first in the status, what Claude does after it.
+  local reminder=""
+  if [ -f "$ROUTINES_FILE" ]; then
+    routines_load
+    routines_reminder
+    if [ -n "$ROUTINES_TEXT" ]; then
+      reminder="$RENDER_REMINDER_ICON $ROUTINES_TEXT"
+      [ "$ROUTINES_MORE" -gt 0 ] && reminder="$reminder +$ROUTINES_MORE"
+      status="$reminder${status:+ · $status}"
+    fi
+  fi
+
+  # The bot and its gaps take 10 columns; keep the text inside the terminal. Cutting from the
+  # right shortens the work status first, so the reminder stays readable.
   if [ -n "$COLUMNS" ] && [ "$COLUMNS" -gt 12 ] 2>/dev/null; then max=$((COLUMNS - 12)); fi
   render_cut "$status" "$max"
   status=$REPLY
+  # An overdue reminder in bold, added after cutting so the codes don't count as characters.
+  if [ "$ROUTINES_STAGE" = overdue ] && [ -n "$reminder" ] && [[ "$status" == "$reminder"* ]]; then
+    status=$'\033[1m'"$reminder"$'\033[22m'"${status#"$reminder"}"
+  fi
   render_cut "$detail" "$max"
   detail=$REPLY
 

@@ -12,10 +12,12 @@ setup() {
   load_module clock routines
 }
 
-# Prints seconds since 1970 for "YYYY-MM-DD HH:MM" in UTC (GNU date, or macOS's, which fills
-# in the current seconds unless they're given).
+# Prints seconds since 1970 for "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS" in UTC (GNU date, or
+# macOS's, which fills in the current seconds unless they're given).
 at() {
-  date -u -d "$1" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$1:00" +%s
+  local t=$1
+  [[ "$t" =~ :[0-9]{2}:[0-9]{2}$ ]] || t="$t:00"
+  date -u -d "$t" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$t" +%s
 }
 
 # Loads config lines $@ (one routine per argument).
@@ -120,4 +122,72 @@ assert_next() {
 @test "tabs separate like spaces in the config" {
   config $'lunch\t=\tdaily\t12:30'
   assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[0]}|${ROUTINES_TIMES[0]}" "1|lunch|750-750"
+}
+
+# Fails unless the reminder at moment "$1" is stage $2 with text $3 and $4 more (default 0).
+assert_reminder() {
+  clock_fields "$(at "$1")"
+  routines_reminder
+  assert_equal "$ROUTINES_STAGE|$ROUTINES_TEXT|$ROUTINES_MORE" "$2|$3|${4:-0}"
+}
+
+@test "a reminder goes from heads-up to due to overdue, then away" {
+  config "lunch = daily 12:30 | heads_up 10m"
+  assert_reminder "2025-11-30 12:19" "" ""
+  assert_reminder "2025-11-30 12:22" heads_up "lunch in 8m"
+  assert_reminder "2025-11-30 12:30" due "lunch now"
+  assert_reminder "2025-11-30 12:45" overdue "lunch 15m ago"
+  assert_reminder "2025-11-30 12:51" "" ""
+}
+
+@test "a window is due while it lasts, with its end" {
+  config "walk = daily 19:00-20:00 | heads_up 10m"
+  assert_reminder "2025-11-30 19:30" due "walk now, until 20:00"
+  assert_reminder "2025-11-30 20:15" overdue "walk 15m ago"
+}
+
+@test "without heads_up there is no heads-up; overdue can be set per routine" {
+  config "stretch = daily 15:00 | overdue 5m"
+  assert_reminder "2025-11-30 14:55" "" ""
+  assert_reminder "2025-11-30 15:04" overdue "stretch 4m ago"
+  assert_reminder "2025-11-30 15:06" "" ""
+}
+
+@test "with several, the most urgent shows and the others are counted" {
+  config "lunch = daily 12:30 | heads_up 10m" "wrap_up = daily 12:35 | heads_up 30m" "plain = daily 12:40"
+  assert_reminder "2025-11-30 12:10" heads_up "wrap up in 25m"
+  assert_reminder "2025-11-30 12:22" heads_up "lunch in 8m" 1
+  assert_reminder "2025-11-30 12:36" overdue "lunch 6m ago" 1
+  assert_reminder "2025-11-30 12:45" overdue "lunch 15m ago" 2
+}
+
+@test "long heads-ups read in hours and days" {
+  config "invoice = monthly last-workday 10:00 | heads_up 2d"
+  assert_reminder "2025-11-27 08:30" heads_up "invoice in 1d 1h"
+  assert_reminder "2025-11-28 08:30" heads_up "invoice in 1h 30m"
+}
+
+@test "a time is due for its whole minute, then overdue in full minutes" {
+  config "lunch = daily 12:30 | heads_up 10m"
+  assert_reminder "2025-11-30 12:29:30" heads_up "lunch in 1m"
+  assert_reminder "2025-11-30 12:30:30" due "lunch now"
+  assert_reminder "2025-11-30 12:30:59" due "lunch now"
+  assert_reminder "2025-11-30 12:31:00" overdue "lunch 1m ago"
+  assert_reminder "2025-11-30 12:31:59" overdue "lunch 1m ago"
+}
+
+@test "a window is due through its last minute" {
+  config "walk = daily 19:00-20:00"
+  assert_reminder "2025-11-30 20:00:30" due "walk now, until 20:00"
+  assert_reminder "2025-11-30 20:01:00" overdue "walk 1m ago"
+}
+
+@test "a mistyped heads_up or overdue makes the line broken, so doctor names it" {
+  config "a = daily 10:00 | heads_up 10min" "b = daily 10:00 | overdue 1hour" "c = daily 10:00 | heads_up 10" \
+    "d = daily 10:00 | heads_up 2h | overdue 30m"
+  assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[*]}|${ROUTINES_HEADS[0]}|${ROUTINES_LATE[0]}" "1|d|7200|1800"
+  run printf '%s' "$ROUTINES_ERRORS"
+  assert_line --partial "line 1: a: heads_up needs a time like 10m, 2h or 1d"
+  assert_line --partial "line 2: b: overdue needs a time like 10m, 2h or 1d"
+  assert_line --partial "line 3: c: heads_up needs a time like 10m, 2h or 1d"
 }

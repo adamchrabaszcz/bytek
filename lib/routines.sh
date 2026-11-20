@@ -98,13 +98,15 @@ routines_schedule() {
 }
 
 # Reads the routines config into ROUTINES_NAME, ROUTINES_KIND, ROUTINES_DAYS, ROUTINES_TIMES,
-# ROUTINES_MONTHS ("from-to" or empty) and ROUTINES_OPTIONS (the other options, for the later
-# steps), ROUTINES_COUNT routines in all. Lines it can't read are skipped and listed in
-# ROUTINES_ERRORS ("line 3: reason"), so one broken line never breaks the status line. A
-# routine with the option "disable" is left out.
+# ROUTINES_MONTHS ("from-to" or empty), ROUTINES_HEADS and ROUTINES_LATE (the heads_up and
+# overdue options in seconds, read once here rather than on every render) and ROUTINES_OPTIONS
+# (the options as written, for the later steps), ROUTINES_COUNT routines in all. Lines it can't
+# read are skipped and listed in ROUTINES_ERRORS ("line 3: reason"), so one broken line never
+# breaks the status line. A routine with the option "disable" is left out.
 routines_load() {
-  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled
+  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled heads late
   ROUTINES_NAME=() ROUTINES_KIND=() ROUTINES_DAYS=() ROUTINES_TIMES=() ROUTINES_MONTHS=() ROUTINES_OPTIONS=()
+  ROUTINES_HEADS=() ROUTINES_LATE=()
   ROUTINES_COUNT=0 ROUTINES_ERRORS=""
   [ -f "$file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
@@ -137,12 +139,20 @@ routines_load() {
       ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: $REPLY"$'\n'
       continue
     fi
-    months="" disabled="" options=""
+    months="" disabled="" options="" heads=0 late=$ROUTINES_OVERDUE
     for field in "${fields[@]:1}"; do
       routines_trim "$field"
       option=$REPLY
       case "$option" in
         disable) disabled=1 ;;
+        heads_up\ * | overdue\ *)
+          routines_seconds "${option#* }" || {
+            ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: ${option%% *} needs a time like 10m, 2h or 1d"$'\n'
+            continue 2
+          }
+          if [ "${option%% *}" = heads_up ]; then heads=$REPLY; else late=$REPLY; fi
+          options="$options|$option"
+          ;;
         months\ *)
           months=${option#months }
           months=${months// /}
@@ -163,34 +173,49 @@ routines_load() {
     ROUTINES_TIMES[ROUTINES_COUNT]=$ROUTINE_TIMES
     ROUTINES_MONTHS[ROUTINES_COUNT]=$months
     ROUTINES_OPTIONS[ROUTINES_COUNT]=${options#|}
+    ROUTINES_HEADS[ROUTINES_COUNT]=$heads
+    ROUTINES_LATE[ROUTINES_COUNT]=$late
     ROUTINES_COUNT=$((ROUTINES_COUNT + 1))
   done <"$file"
 }
 
-# Returns 0 if routine $1 happens on the day $2-$3-$4 (year, month, day) with weekday $5
-# (1 Monday … 7 Sunday) in a month of $6 days.
-routines_on_day() {
-  local i=$1 m=$3 d=$4 wd=$5 dim=$6 from to last lastwd
-  if [ -n "${ROUTINES_MONTHS[i]}" ]; then
-    from=${ROUTINES_MONTHS[i]%-*} to=${ROUTINES_MONTHS[i]#*-}
-    if [ "$from" -le "$to" ]; then
-      [ "$m" -ge "$from" ] && [ "$m" -le "$to" ] || return 1
-    else # a season over New Year, like 10-4
-      [ "$m" -ge "$from" ] || [ "$m" -le "$to" ] || return 1
-    fi
+# Returns 0 if month $2 is in routine $1's season (always, without one).
+routines_in_season() {
+  local from to
+  [ -n "${ROUTINES_MONTHS[$1]}" ] || return 0
+  from=${ROUTINES_MONTHS[$1]%-*} to=${ROUTINES_MONTHS[$1]#*-}
+  if [ "$from" -le "$to" ]; then
+    [ "$2" -ge "$from" ] && [ "$2" -le "$to" ]
+  else # a season over New Year, like 10-4
+    [ "$2" -ge "$from" ] || [ "$2" -le "$to" ]
   fi
+}
+
+# Sets REPLY to how many days from day $2 (weekday $3, in a month of $4 days) routine $1's next
+# possible day is: 0 for this one, and to the 1st of next month when none is left in this one.
+# Jumping instead of looking at each day keeps a season months away (or a monthly routine) to a
+# few steps on the render path.
+routines_skip() {
+  local i=$1 d=$2 wd=$3 dim=$4 target lastwd
   case "${ROUTINES_KIND[i]}" in
-    daily) return 0 ;;
-    weekdays) [ "$wd" -le 5 ] ;;
-    days) [[ "${ROUTINES_DAYS[i]}" == *" $wd "* ]] ;;
+    daily) REPLY=0 ;;
+    weekdays) if [ "$wd" -le 5 ]; then REPLY=0; else REPLY=$((8 - wd)); fi ;;
+    days) # the next listed weekday, at most six days away
+      REPLY=0
+      while [[ "${ROUTINES_DAYS[i]}" != *" $(((wd - 1 + REPLY) % 7 + 1)) "* ]]; do REPLY=$((REPLY + 1)); done
+      ;;
     monthly)
       if [ "${ROUTINES_DAYS[i]}" = last-workday ]; then
         # The month's last day and its weekday, then back over a weekend.
-        last=$dim lastwd=$(((wd - 1 + dim - d) % 7 + 1))
-        while [ "$lastwd" -gt 5 ]; do last=$((last - 1)) lastwd=$((lastwd - 1)); done
-        [ "$d" -eq "$last" ]
+        target=$dim lastwd=$(((wd - 1 + dim - d) % 7 + 1))
+        while [ "$lastwd" -gt 5 ]; do target=$((target - 1)) lastwd=$((lastwd - 1)); done
       else
-        [ "$d" -eq "${ROUTINES_DAYS[i]}" ]
+        target=${ROUTINES_DAYS[i]}
+      fi
+      if [ "$d" -le "$target" ] && [ "$target" -le "$dim" ]; then
+        REPLY=$((target - d))
+      else
+        REPLY=$((dim - d + 1))
       fi
       ;;
   esac
@@ -200,11 +225,17 @@ routines_on_day() {
 # ended at the moment clock_fields last set (CLOCK_*): the current one during a window, else the
 # next. Empty, returning 1, when none comes within ROUTINES_HORIZON days.
 routines_next() {
-  local i=$1 k y=$CLOCK_YEAR m=$CLOCK_MONTH d=$CLOCK_DAY wd=$CLOCK_WEEKDAY dim base slot start end
+  local i=$1 k=0 y=$CLOCK_YEAR m=$CLOCK_MONTH d=$CLOCK_DAY wd=$CLOCK_WEEKDAY dim jump base slot start end
   clock_days_in_month "$y" "$m"
   dim=$REPLY
-  for ((k = 0; k <= ROUTINES_HORIZON; k++)); do
-    if routines_on_day "$i" "$y" "$m" "$d" "$wd" "$dim"; then
+  while [ "$k" -le "$ROUTINES_HORIZON" ]; do
+    if routines_in_season "$i" "$m"; then
+      routines_skip "$i" "$d" "$wd" "$dim"
+      jump=$REPLY
+    else
+      jump=$((dim - d + 1)) # out of season: on to the 1st of next month
+    fi
+    if [ "$jump" -eq 0 ]; then
       base=$((CLOCK_MIDNIGHT + k * 86400))
       for slot in ${ROUTINES_TIMES[i]}; do
         start=$((base + ${slot%-*} * 60)) end=$((base + ${slot#*-} * 60))
@@ -213,15 +244,98 @@ routines_next() {
           return 0
         fi
       done
+      jump=1
     fi
-    wd=$((wd % 7 + 1)) d=$((d + 1))
-    if [ "$d" -gt "$dim" ]; then
-      d=1 m=$((m + 1))
+    k=$((k + jump)) wd=$(((wd - 1 + jump) % 7 + 1)) d=$((d + jump))
+    while [ "$d" -gt "$dim" ]; do
+      d=$((d - dim)) m=$((m + 1))
       [ "$m" -gt 12 ] && m=1 y=$((y + 1))
       clock_days_in_month "$y" "$m"
       dim=$REPLY
-    fi
+    done
   done
   REPLY=""
   return 1
+}
+
+ROUTINES_OVERDUE=1200 # seconds a reminder stays after its time (or window) has passed: 20 min
+
+# Sets REPLY to the seconds in a duration like "10m", "2h" or "1d"; returns 1 if it isn't one.
+routines_seconds() {
+  [[ "$1" =~ ^([0-9]+)([mhd])$ ]] || return 1
+  case ${BASH_REMATCH[2]} in
+    m) REPLY=$((10#${BASH_REMATCH[1]} * 60)) ;;
+    h) REPLY=$((10#${BASH_REMATCH[1]} * 3600)) ;;
+    d) REPLY=$((10#${BASH_REMATCH[1]} * 86400)) ;;
+  esac
+}
+
+# Sets REPLY to $1 seconds, rounded up to minutes, as "8m", "1h 30m", "2h" or "1d 3h".
+routines_until() {
+  local m=$((($1 + 59) / 60))
+  if [ "$m" -lt 60 ]; then
+    REPLY="${m}m"
+  elif [ "$m" -lt 1440 ]; then
+    REPLY="$((m / 60))h"
+    [ $((m % 60)) -gt 0 ] && REPLY="$REPLY $((m % 60))m"
+  else
+    REPLY="$((m / 1440))d"
+    [ $((m % 1440 / 60)) -gt 0 ] && REPLY="$REPLY $((m % 1440 / 60))h"
+  fi
+}
+
+# Sets the most urgent reminder at the moment clock_fields last set: ROUTINES_TEXT ("lunch in
+# 8m", "lunch now", "walk now, until 20:00", "lunch 15m ago"), ROUTINES_STAGE (heads_up, due or
+# overdue) and ROUTINES_MORE (how many other routines are in a stage too). Overdue beats due beats
+# a heads-up; among equals, the one that starts first. All empty (ROUTINES_MORE 0) when none is.
+# A heads-up needs the routine's heads_up option; overdue lasts ROUTINES_OVERDUE, or its own
+# overdue option. A time is due for its whole minute (12:30:00 to 12:30:59), a window through
+# its last minute; "ago" counts full minutes from its end. An occurrence that ended before
+# today's midnight isn't seen as overdue.
+routines_reminder() {
+  local i now=$CLOCK_EPOCH start end heads late rank stage best=0 first=0 count=0 name text minute
+  ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0
+  for ((i = 0; i < ROUTINES_COUNT; i++)); do
+    heads=${ROUTINES_HEADS[i]} late=${ROUTINES_LATE[i]}
+    # From now minus the overdue time, so an occurrence that has just passed is still found.
+    CLOCK_EPOCH=$((now - late))
+    routines_next "$i"
+    CLOCK_EPOCH=$now
+    [ -n "$REPLY" ] || continue
+    start=${REPLY% *} end=${REPLY#* }
+    # Without a heads_up option, start - heads is the start itself: no heads-up stage.
+    if [ "$now" -lt $((start - heads)) ]; then
+      continue
+    elif [ "$now" -lt "$start" ]; then
+      rank=1 stage=heads_up
+    elif [ "$now" -lt $((end + 60)) ]; then
+      rank=2 stage=due
+    else
+      rank=3 stage=overdue
+    fi
+    count=$((count + 1))
+    [ "$rank" -gt "$best" ] || { [ "$rank" -eq "$best" ] && [ "$start" -lt "$first" ]; } || continue
+    best=$rank first=$start name=${ROUTINES_NAME[i]//_/ }
+    case $stage in
+      heads_up)
+        routines_until $((start - now))
+        text="$name in $REPLY"
+        ;;
+      due)
+        text="$name now"
+        if [ "$end" -gt "$start" ]; then
+          minute=$((((end - CLOCK_MIDNIGHT) / 60) % 1440))
+          printf -v minute '%02d:%02d' $((minute / 60)) $((minute % 60)) # -v: no subshell
+          text="$text, until $minute"
+        fi
+        ;;
+      overdue)
+        routines_until $(((now - end) / 60 * 60)) # full minutes: 12:31:30 is "1m ago"
+        text="$name $REPLY ago"
+        ;;
+    esac
+    ROUTINES_TEXT=$text ROUTINES_STAGE=$stage
+  done
+  [ "$count" -gt 0 ] && ROUTINES_MORE=$((count - 1))
+  return 0
 }

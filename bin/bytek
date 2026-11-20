@@ -108,6 +108,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/state.sh"
     # shellcheck source=lib/addon.sh
     . "$BYTEK_LIB/addon.sh"
+    # shellcheck source=lib/routines.sh
+    . "$BYTEK_LIB/routines.sh"
     # shellcheck source=lib/render.sh
     . "$BYTEK_LIB/render.sh"
     cmd_render
