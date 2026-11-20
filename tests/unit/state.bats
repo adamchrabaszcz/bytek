@@ -1,13 +1,14 @@
 #!/usr/bin/env bats
 # lib/state.sh: loading, writing and switching a session's state.
-# S_<key> is set by the module under test, and each test runs in its own subshell on purpose:
-# shellcheck disable=SC2154,SC2030,SC2031
+# S_<key> is set by the module under test, STATE_LOCK_WAIT read by it, and each test runs in
+# its own subshell on purpose:
+# shellcheck disable=SC2154,SC2034,SC2030,SC2031
 
 load ../helpers
 
 setup() {
   bytek_setup
-  load_module state
+  load_module clock state
 }
 
 @test "a missing state file loads as idle with nothing else set" {
@@ -46,4 +47,30 @@ setup() {
   S_progress=1/2
   state_to thinking
   assert_equal "$S_state|$S_arg|$S_status|$S_detail|$S_progress" "thinking||||"
+}
+
+@test "a lock is taken once, and free again after unlock" {
+  state_lock "$TMP/state/s1"
+  [ -d "$TMP/state/s1.lock" ] || fail "no lock"
+  STATE_LOCK_WAIT=1
+  run state_lock "$TMP/state/s1"
+  assert_failure
+  state_unlock "$TMP/state/s1"
+  state_lock "$TMP/state/s1"
+}
+
+@test "a lock left behind by a crash is taken over" {
+  mkdir -p "$TMP/state/s1.lock"
+  echo 1000 >"$TMP/state/s1.lock/since"
+  BYTEK_NOW=2000 state_lock "$TMP/state/s1"
+  assert_equal "$(cat "$TMP/state/s1.lock/since")" 2000
+}
+
+@test "a held lock makes the caller give up, so it can go ahead without it" {
+  # How long it tries is fixed by the code (STATE_LOCK_WAIT seconds of attempts), not measured.
+  STATE_LOCK_WAIT=1
+  state_lock "$TMP/state/s1"
+  run state_lock "$TMP/state/s1"
+  assert_failure
+  [ -d "$TMP/state/s1.lock" ] || fail "the holder's lock was removed"
 }

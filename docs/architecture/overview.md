@@ -18,7 +18,7 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | --- | --- | --- |
 | `lib/locale.sh` | picks a UTF-8 locale so text is counted in characters | nothing |
 | `lib/clock.sh` | the current time, file name stamps, durations: every `date` goes through it | nothing |
-| `lib/state.sh` | reads, writes and switches a session's state file | nothing |
+| `lib/state.sh` | reads, writes, locks and switches a session's state file | clock |
 | `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text | clock, state |
 | `lib/hooks.sh` | turns hook events into states; the debug log; following plugin updates | clock, state |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |

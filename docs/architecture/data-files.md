@@ -22,6 +22,8 @@ One per Claude Code session (`<session>` is the session id: letters, digits, `_`
 
 Values are one line: line breaks and tabs become spaces and control characters are removed when the file is written. Unknown keys are ignored when it is read, and a missing file reads as `idle`. Files untouched for 7 days are removed at the next session start; a session's file is removed when it ends.
 
+While a hook or `bytek set` changes a state file, it holds a lock: a directory next to it, `<session>.lock`, with a file `since` holding the time it was taken (seconds since 1970). The next writer waits for it up to `BYTEK_LOCK_WAIT` seconds (default 2) and then goes ahead without it; a lock older than `BYTEK_LOCK_STALE` seconds (default 10) was left by a crash and is removed.
+
 An `idle` or `done` state older than `BYTEK_SLEEP_AFTER` seconds (default 600) is shown as `sleeping`.
 
 ## Face file: `faces/<state>`

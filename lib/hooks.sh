@@ -37,7 +37,7 @@ hooks_follow_plugin_update() {
 # Maps the hook event in JSON on stdin to a state and writes it.
 hooks_handle() {
   local json event="" session="" tool="" file="" pattern="" cmd="" message="" ntype="" err="" cwd=""
-  local f now n re
+  local f re
   json=$(cat)
   if command -v jq >/dev/null 2>&1; then
     IFS=$'\037' read -r event session tool file pattern cmd message ntype err cwd <<EOF
@@ -55,10 +55,25 @@ EOF
 
   [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || session=default
   f="$BYTEK_HOME/state/$session"
+  [ -n "$cwd" ] && file=${file#"$cwd"/}
+
+  # Read, change and write the state under the session's lock, so a hook running at the same
+  # moment can't overwrite this update. Without the lock after the wait, go ahead anyway, and
+  # never release a lock that belongs to another hook.
+  local locked=""
+  state_lock "$f" && locked=1
+  hooks_apply
+  [ -n "$locked" ] && state_unlock "$f"
+  return 0
+}
+
+# Applies the event to the state file. Reads what hooks_handle parsed (event, tool, file,
+# pattern, cmd, message, ntype, err, f): bash locals are visible to the functions they call.
+hooks_apply() {
+  local now n
   clock_now
   now=$REPLY
   state_load "$f"
-  [ -n "$cwd" ] && file=${file#"$cwd"/}
 
   case "$event" in
     SessionStart)

@@ -110,3 +110,29 @@ ev() {
   ev 1100 '"hook_event_name":"SessionEnd"'
   [ ! -f "$BYTEK_HOME/state/s1" ] || fail "state file not removed"
 }
+
+@test "hooks running at the same time don't lose updates" {
+  needs_jq
+  local i files
+  # A wait that never runs out here, so the result depends only on the lock being correct, not
+  # on how busy the machine is. Giving up after the wait is tested in tests/unit/state.bats.
+  export BYTEK_LOCK_WAIT=60
+  hook '{"hook_event_name":"UserPromptSubmit","session_id":"s1"}'
+  for i in $(seq 30); do
+    hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Edit","tool_input":{"file_path":"/r/f'"$i"'.ts"}}' &
+  done
+  wait
+  assert_state s1 edits 30
+  files=$(state_of s1 files)
+  files=${files//[!|]/}
+  assert_equal "$((${#files} - 1))" 30
+}
+
+@test "a lock left behind by a crashed hook doesn't block the next ones" {
+  needs_jq
+  mkdir -p "$BYTEK_HOME/state/s1.lock"
+  echo 1000 >"$BYTEK_HOME/state/s1.lock/since"
+  BYTEK_NOW=2000 hook '{"hook_event_name":"UserPromptSubmit","session_id":"s1"}'
+  assert_state s1 state thinking
+  [ ! -e "$BYTEK_HOME/state/s1.lock" ] || fail "lock left behind"
+}
