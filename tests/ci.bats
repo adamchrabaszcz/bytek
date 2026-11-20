@@ -1,29 +1,48 @@
 #!/usr/bin/env bats
-# The shape of CI (.github/workflows/test.yml): coverage runs in its own job, next to the
-# tests, with its gems locked and cached.
+# The shape of CI: pull requests wait for lint and tests only (test.yml); line coverage runs
+# after a merge, in its own workflow (coverage.yml), with its gems locked and cached, and
+# blocks nothing, releases included.
 
 load helpers
 
-# Prints the lines of job $1 in test.yml (from "  $1:" to the next job).
+WORKFLOWS="$ROOT/.github/workflows"
+
+# Prints the lines of job $2 in workflow $1 (from "  $2:" to the next job).
 job() {
-  awk -v job="  $1:" '
+  awk -v job="  $2:" '
     $0 == job { on = 1; next }
     on && /^  [^ ]/ { on = 0 } # the next job, or the comment above it
-    on' "$ROOT/.github/workflows/test.yml"
+    on' "$WORKFLOWS/$1"
 }
 
-@test "the test jobs only test; coverage has its own job" {
-  run job test
-  assert_output --partial "tests/run.sh"
+# Prints the workflow's `on:` block.
+triggers() {
+  awk '/^on:/ { on = 1; next } on && /^[^ ]/ { on = 0 } on' "$WORKFLOWS/$1"
+}
+
+@test "pull requests wait for lint and tests only" {
+  run cat "$WORKFLOWS/test.yml"
+  assert_output --partial "run: tools/lint.sh"
+  assert_output --partial "run: tests/run.sh"
   refute_output --partial "bashcov"
   refute_output --partial "codecov"
-  run job coverage
+}
+
+@test "coverage runs after a merge to main, in its own workflow" {
+  run triggers coverage.yml
+  assert_output --partial "branches: [main]"
+  refute_output --partial "pull_request"
+  run job coverage.yml coverage
   assert_output --partial "bundle exec bashcov"
   assert_output --partial "codecov/codecov-action"
 }
 
+@test "releases start from the test workflow, not from coverage" {
+  grep -q '^    workflows: \[test\]$' "$WORKFLOWS/release.yml"
+}
+
 @test "the coverage job installs locked gems from the cache and requires every script" {
-  run job coverage
+  run job coverage.yml coverage
   assert_output --partial "bundler-cache: true"
   assert_output --partial "--require bin/bytek tools/*.sh install.sh uninstall.sh"
   refute_output --partial "gem install"

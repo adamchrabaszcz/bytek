@@ -53,7 +53,7 @@ tests/run.sh                  # all tests; on a Mac also: /bin/bash tests/run.sh
 tools/lint.sh                 # ShellCheck + shfmt
 ```
 
-CI (`.github/workflows/test.yml`) runs tests on Linux and on macOS with bash 3.2, lint, and line coverage with bashcov.
+CI (`.github/workflows/test.yml`) runs lint and the tests on Linux and on macOS with bash 3.2; pull requests wait for those. Line coverage (bashcov, `coverage.yml`) runs after a merge to `main` and blocks nothing.
 
 ## Code rules that bite
 
