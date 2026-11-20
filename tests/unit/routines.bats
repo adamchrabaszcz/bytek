@@ -121,3 +121,46 @@ assert_next() {
   config $'lunch\t=\tdaily\t12:30'
   assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[0]}|${ROUTINES_TIMES[0]}" "1|lunch|750-750"
 }
+
+# Fails unless the reminder at moment "$1" is stage $2 with text $3 and $4 more (default 0).
+assert_reminder() {
+  clock_fields "$(at "$1")"
+  routines_reminder
+  assert_equal "$ROUTINES_STAGE|$ROUTINES_TEXT|$ROUTINES_MORE" "$2|$3|${4:-0}"
+}
+
+@test "a reminder goes from heads-up to due to overdue, then away" {
+  config "lunch = daily 12:30 | heads_up 10m"
+  assert_reminder "2025-11-30 12:19" "" ""
+  assert_reminder "2025-11-30 12:22" heads_up "lunch in 8m"
+  assert_reminder "2025-11-30 12:30" due "lunch now"
+  assert_reminder "2025-11-30 12:45" overdue "lunch 15m ago"
+  assert_reminder "2025-11-30 12:51" "" ""
+}
+
+@test "a window is due while it lasts, with its end" {
+  config "walk = daily 19:00-20:00 | heads_up 10m"
+  assert_reminder "2025-11-30 19:30" due "walk now, until 20:00"
+  assert_reminder "2025-11-30 20:15" overdue "walk 15m ago"
+}
+
+@test "without heads_up there is no heads-up; overdue can be set per routine" {
+  config "stretch = daily 15:00 | overdue 5m"
+  assert_reminder "2025-11-30 14:55" "" ""
+  assert_reminder "2025-11-30 15:04" overdue "stretch 4m ago"
+  assert_reminder "2025-11-30 15:06" "" ""
+}
+
+@test "with several, the most urgent shows and the others are counted" {
+  config "lunch = daily 12:30 | heads_up 10m" "wrap_up = daily 12:35 | heads_up 30m" "plain = daily 12:40"
+  assert_reminder "2025-11-30 12:10" heads_up "wrap up in 25m"
+  assert_reminder "2025-11-30 12:22" heads_up "lunch in 8m" 1
+  assert_reminder "2025-11-30 12:36" overdue "lunch 6m ago" 1
+  assert_reminder "2025-11-30 12:45" overdue "lunch 15m ago" 2
+}
+
+@test "long heads-ups read in hours and days" {
+  config "invoice = monthly last-workday 10:00 | heads_up 2d"
+  assert_reminder "2025-11-27 08:30" heads_up "invoice in 1d 1h"
+  assert_reminder "2025-11-28 08:30" heads_up "invoice in 1h 30m"
+}
