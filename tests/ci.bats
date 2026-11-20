@@ -97,3 +97,11 @@ triggers() {
   assert_output --partial "Never approve"
   assert_output --partial "--max-turns"
 }
+
+@test "the AI review sums up as a checklist of its points, then the verdict" {
+  run cat "$WORKFLOWS/claude-review.yml"
+  assert_output --partial '"- [x] <point>: <why it'"'"'s fine>"'
+  assert_output --partial '"- [ ] <point>: <what needs attention>"'
+  assert_output --partial "leaving out the"
+  grep -q '`\[x\]` when fine and `\[ \]`' "$ROOT/AGENTS.md" || fail "AGENTS.md doesn't describe the checklist"
+}
