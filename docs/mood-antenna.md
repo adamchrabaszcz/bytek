@@ -14,7 +14,7 @@ The symbol on top of Bytek's antenna shows the session's vibe. Claude picks it a
 | `curious` | `?` | curious, exploring or figuring something out |
 | `sleepy` | `~` | slow, a long wait or a quiet moment |
 
-Set one yourself with `/bytek addon <name>` in Claude Code, or `bytek addon <name>` in a terminal; `bytek addon` alone lists them and marks the current one.
+Set one yourself with `/bytek addon <name>` in Claude Code, or `bytek addon <name>` in a terminal; `bytek addon` alone lists them and marks the current one. `bytek setup` lets Claude run that command without a permission prompt (one rule in `settings.json`, removed on uninstall); if you set Bytek up before that, run setup once more.
 
 ## Let Claude pick
 

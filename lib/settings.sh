@@ -7,13 +7,19 @@
 # A status line or hook command that runs Bytek ("…/bin/bytek render", quoted or not).
 SETTINGS_CMD_RE='/bin/bytek"? (render|hook)$'
 
+# The one permission setup adds: Claude may set the mood antenna without a prompt each time.
+# Claude Code splits compound commands, so it allows `bytek addon <name>` and nothing joined to
+# it, and the * comes after the subcommand, so it can't let other options in. The path must be
+# the one Claude is told to run (docs/mood-antenna.md), or the prompt comes back.
+SETTINGS_ANTENNA_RULE='Bash(~/.claude/bytek/current/bin/bytek addon *)'
+
 # Applies the jq program lib/$1 to settings.json, with jq options after it. Writes a temp
 # file first and checks it, so a failed edit leaves settings.json as it was.
 settings_edit() {
   local program="$BYTEK_ROOT/lib/$1" tmp
   shift
   tmp=$(mktemp "$BYTEK_SETTINGS.XXXXXX") || return 1
-  if jq --arg bytek_re "$SETTINGS_CMD_RE" "$@" -f "$program" "$BYTEK_SETTINGS" >"$tmp" &&
+  if jq --arg bytek_re "$SETTINGS_CMD_RE" --arg antenna_rule "$SETTINGS_ANTENNA_RULE" "$@" -f "$program" "$BYTEK_SETTINGS" >"$tmp" &&
     jq -e . "$tmp" >/dev/null 2>&1; then
     # cat, not mv: settings.json may be a symlink (dotfiles) and must stay one.
     cat "$tmp" >"$BYTEK_SETTINGS"
