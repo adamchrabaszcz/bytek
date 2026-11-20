@@ -1,30 +1,30 @@
 #!/usr/bin/env bats
-# lib/state.sh: loading, writing and switching a session's state.
-# S_<key> is set by the module under test, STATE_LOCK_WAIT read by it, and each test runs in
+# lib/state.sh: loading, writing and switching a session's state, and its edit list.
+# S_<key> and STATE_EDITS/STATE_FILES are set by the module under test, and each test runs in
 # its own subshell on purpose:
-# shellcheck disable=SC2154,SC2034,SC2030,SC2031
+# shellcheck disable=SC2154,SC2030,SC2031
 
 load ../helpers
 
 setup() {
   bytek_setup
-  load_module clock state
+  load_module state
 }
 
 @test "a missing state file loads as idle with nothing else set" {
   state_load "$TMP/none"
   assert_equal "$S_state" idle
-  assert_equal "$S_arg$S_status$S_detail$S_progress$S_since$S_turn_start$S_edits$S_files" ""
+  assert_equal "$S_arg$S_status$S_detail$S_progress$S_since$S_turn_start" ""
 }
 
 @test "every field survives a write and a load" {
   state_to editing "src/a.ts" "editing 2 files" "detail"
-  S_progress=3/5 S_since=1000 S_turn_start=990 S_edits=2 S_files="|a|b|"
+  S_progress=3/5 S_since=1000 S_turn_start=990
   state_write "$TMP/state/s1"
   state_load /dev/null
   state_load "$TMP/state/s1"
   assert_equal "$S_state|$S_arg|$S_status|$S_detail" "editing|src/a.ts|editing 2 files|detail"
-  assert_equal "$S_progress|$S_since|$S_turn_start|$S_edits|$S_files" "3/5|1000|990|2||a|b|"
+  assert_equal "$S_progress|$S_since|$S_turn_start" "3/5|1000|990"
 }
 
 @test "writing drops control characters and turns line breaks into spaces" {
@@ -35,11 +35,11 @@ setup() {
   assert_line "arg=a b c[31md"
 }
 
-@test "unknown keys in a state file are ignored" {
-  printf 'state=reading\nevil=1\n' >"$TMP/s1"
+@test "unknown keys in a state file are ignored, the edits and files older versions kept too" {
+  printf 'state=reading\nevil=1\nedits=3\nfiles=|a|\n' >"$TMP/s1"
   state_load "$TMP/s1"
   assert_equal "$S_state" reading
-  [ -z "${S_evil:-}" ] || fail "S_evil was set"
+  [ -z "${S_evil:-}${S_edits:-}${S_files:-}" ] || fail "an unknown key was loaded"
 }
 
 @test "switching state clears the previous state's text and progress" {
@@ -49,28 +49,25 @@ setup() {
   assert_equal "$S_state|$S_arg|$S_status|$S_detail|$S_progress" "thinking||||"
 }
 
-@test "a lock is taken once, and free again after unlock" {
-  state_lock "$TMP/state/s1"
-  [ -d "$TMP/state/s1.lock" ] || fail "no lock"
-  STATE_LOCK_WAIT=1
-  run state_lock "$TMP/state/s1"
-  assert_failure
-  state_unlock "$TMP/state/s1"
-  state_lock "$TMP/state/s1"
+@test "edits are counted, and different files among them" {
+  state_add_edit "$TMP/state/s1" src/a.ts
+  state_add_edit "$TMP/state/s1" src/b.ts
+  state_add_edit "$TMP/state/s1" src/a.ts
+  state_count_edits "$TMP/state/s1"
+  assert_equal "$STATE_EDITS|$STATE_FILES" "3|2"
 }
 
-@test "a lock left behind by a crash is taken over" {
-  mkdir -p "$TMP/state/s1.lock"
-  echo 1000 >"$TMP/state/s1.lock/since"
-  BYTEK_NOW=2000 state_lock "$TMP/state/s1"
-  assert_equal "$(cat "$TMP/state/s1.lock/since")" 2000
+@test "no edit list counts as no edits; clearing it starts from zero" {
+  state_count_edits "$TMP/state/s1"
+  assert_equal "$STATE_EDITS|$STATE_FILES" "0|0"
+  state_add_edit "$TMP/state/s1" src/a.ts
+  state_clear_edits "$TMP/state/s1"
+  state_count_edits "$TMP/state/s1"
+  assert_equal "$STATE_EDITS|$STATE_FILES" "0|0"
 }
 
-@test "a held lock makes the caller give up, so it can go ahead without it" {
-  # How long it tries is fixed by the code (STATE_LOCK_WAIT seconds of attempts), not measured.
-  STATE_LOCK_WAIT=1
-  state_lock "$TMP/state/s1"
-  run state_lock "$TMP/state/s1"
-  assert_failure
-  [ -d "$TMP/state/s1.lock" ] || fail "the holder's lock was removed"
+@test "an edit's file name can't carry control characters into the list" {
+  state_add_edit "$TMP/state/s1" $'a\033[31m.ts\nb.ts'
+  run cat "$TMP/state/s1.edits"
+  assert_output "a[31m.tsb.ts"
 }
