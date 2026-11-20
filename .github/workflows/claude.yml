@@ -1,9 +1,9 @@
 name: claude
 
 # Answers "@claude" in issue comments, pull request review comments and reviews, e.g.
-# "@claude review" for another pass after new commits. Only people with write access to the
-# repository can trigger it (the action's default). It reads the code and comments; it can't
-# push. Runs on the owner's Claude subscription (secret CLAUDE_CODE_OAUTH_TOKEN). Based on the
+# "@claude review" for another pass after new commits. Only the owner, members and
+# collaborators can trigger it (checked in the job's `if:` below, and by the action). It reads
+# the code and comments; it can't push. Runs on the owner's Claude subscription (secret CLAUDE_CODE_OAUTH_TOKEN). Based on the
 # action's official example examples/claude.yml.
 on:
   issue_comment:
