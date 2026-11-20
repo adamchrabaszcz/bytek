@@ -16,7 +16,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true # bats lives in tests/bats/
       # Bytek must run on macOS's own bash 3.2, not a newer one from Homebrew.
@@ -46,7 +46,7 @@ jobs:
           tools/coverage-summary.sh coverage --require bin/bytek tools/*.sh install.sh uninstall.sh | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux'
-        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: coverage/coverage.xml
           disable_search: true
