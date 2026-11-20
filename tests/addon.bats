@@ -25,11 +25,11 @@ antenna() {
 
 @test "bytek addon alone lists every add-on with its meaning and marks the current one" {
   local addons=("$ROOT"/addons/*)
-  "$BYTEK" addon music
+  "$BYTEK" addon flow
   run "$BYTEK" addon
   assert_success
   assert_equal "${#lines[@]}" "${#addons[@]}"
-  assert_line --regexp '^\* music +♪  in the flow'
+  assert_line --regexp '^\* flow +≈  in the flow'
   assert_line --regexp '^  heart +♡  warm'
 }
 

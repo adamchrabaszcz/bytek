@@ -21,7 +21,7 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/state.sh` | reads, writes and switches a session's state file; its edit list | nothing |
 | `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | nothing |
 | `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text | clock, state, addon |
-| `lib/hooks.sh` | turns hook events into states; the debug log; following plugin updates | clock, state |
+| `lib/hooks.sh` | turns hook events into states; the antenna reminder; the debug log; following plugin updates | clock, state, addon |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
 | `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings |
 
@@ -33,7 +33,7 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 | --- | --- | --- |
 | `bytek render` | locale, clock, state, addon, render | never |
 | `bytek addon` | locale, addon | no |
-| `bytek hook` | locale, clock, state, hooks | if installed |
+| `bytek hook` | locale, clock, state, addon, hooks | if installed |
 | `bytek set` | locale, clock, state | no |
 | `bytek setup`, `uninstall` | locale, clock, settings | required |
 | `bytek doctor` | locale, clock, settings, doctor | if installed |

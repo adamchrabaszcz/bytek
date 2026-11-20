@@ -60,7 +60,7 @@ CI (`.github/workflows/test.yml`) runs lint and the tests on Linux and on macOS 
 - **Bash 3.2** (macOS's own): no associative arrays, no `mapfile`, no `${var,,}`, no `case` inside `$( )`.
 - **Render path** (`bytek render`): local files only, no network, no `jq`, as few subprocesses as possible; 50 ms budget, checked by `tests/speed.bats`. Return values through `REPLY` (`docs/patterns/`).
 - **Modules:** the engine is `lib/*.sh`, one job each; `bin/bytek` only dispatches. Functions and constants only, named after the module (`state_load`, `RENDER_SPINNER`); new code goes into the module whose job it is (`docs/patterns/module.md`).
-- **Hooks** print nothing to stdout and always exit 0.
+- **Hooks** print nothing to stdout, except the antenna reminder on session start and prompts (`docs/adr/0009-antenna-reminders.md`), and always exit 0.
 - **Outside text is untrusted:** hook fields, command-line text and caches go through the control-character filter (`lib/hook-fields.jq`, `state_write`); new inputs get a case in `tests/security.bats`.
 - **Shell options:** every script declares `set ±o errexit ±o nounset ±o pipefail` before its first command (`tests/shell-options.bats`).
 - **jq programs** longer than one line live in `lib/*.jq`.
@@ -78,7 +78,7 @@ Claude reviews each pull request when it's opened or marked ready (`.github/work
 
 - **Bash 3.2:** anything newer that slips through (`docs/adr/0004-bash-3-2-compatible.md`), `"$var▰"` without braces.
 - **The render path:** a new subprocess, jq or network call in `bytek render` (50 ms budget).
-- **Hooks:** anything printed to stdout, a way to exit non-zero or hang.
+- **Hooks:** anything printed to stdout beyond the antenna reminder, a way to exit non-zero or hang.
 - **Outside text:** hook fields, command-line text or cache contents that reach the terminal without the control-character filter.
 - **Files people already have:** a state, face or config format change without a version bump (`docs/architecture/data-files.md`).
 - **Tests:** a change without a test that fails without it; a test that depends on timing.

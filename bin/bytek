@@ -85,7 +85,11 @@ cmd_set() {
 }
 
 cmd_hook() {
+  HOOKS_CONTEXT=""
   hooks_handle >/dev/null 2>&1
+  # Only the antenna reminder reaches stdout, and only on session start and prompts, whose
+  # stdout Claude Code adds to Claude's context (docs/adr/0009-antenna-reminders.md).
+  [ -n "$HOOKS_CONTEXT" ] && printf '%s\n' "$HOOKS_CONTEXT"
   exit 0
 }
 
@@ -128,6 +132,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/state.sh
     . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/addon.sh
+    . "$BYTEK_LIB/addon.sh"
     # shellcheck source=lib/hooks.sh
     . "$BYTEK_LIB/hooks.sh"
     cmd_hook

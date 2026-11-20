@@ -106,12 +106,46 @@ ev() {
   assert_state s1 status "using sentry"
 }
 
-@test "hooks print nothing and exit 0, even on bad input" {
+@test "hooks print nothing but the antenna reminder, and exit 0, even on bad input" {
+  local event
   run hook 'not json'
   assert_success
   assert_output ""
+  for event in PreToolUse PostToolUse PostToolUseFailure PermissionRequest Notification Stop SessionEnd; do
+    run ev 1060 '"hook_event_name":"'"$event"'","tool_name":"Read","tool_input":{"file_path":"/repo/a.ts"}'
+    assert_success
+    assert_output ""
+  done
   run ev 1060 '"hook_event_name":"UserPromptSubmit"'
   assert_success
+  assert_output "Bytek's antenna: heart."
+}
+
+@test "session start gives Claude the antenna instructions and the current add-on" {
+  "$BYTEK" addon star
+  run ev 1000 '"hook_event_name":"SessionStart"'
+  assert_success
+  assert_line --index 0 --partial "Bytek, the status line companion, has a mood antenna."
+  # shellcheck disable=SC2088 # the literal "~" is what the instructions say
+  assert_output --partial "~/.claude/bytek/current/bin/bytek addon <name>"
+  assert_output --partial "flow (building, one change after another)"
+  assert_line --index 2 "Bytek's antenna: star."
+}
+
+@test "each prompt tells Claude the current add-on" {
+  run ev 1000 '"hook_event_name":"UserPromptSubmit","prompt":"go"'
+  assert_output "Bytek's antenna: heart."
+  "$BYTEK" addon curious
+  run ev 1001 '"hook_event_name":"UserPromptSubmit","prompt":"next"'
+  assert_output "Bytek's antenna: curious."
+}
+
+@test "with the antenna reminders turned off, hooks print nothing at all" {
+  mkdir -p "$BYTEK_HOME/config"
+  touch "$BYTEK_HOME/config/antenna-reminders-off"
+  run ev 1000 '"hook_event_name":"SessionStart"'
+  assert_output ""
+  run ev 1001 '"hook_event_name":"UserPromptSubmit","prompt":"go"'
   assert_output ""
 }
 

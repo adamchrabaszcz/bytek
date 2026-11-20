@@ -1,8 +1,9 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034,SC2154 # S_<key> belongs to lib/state.sh: read here, written by state_write
-# hooks: turns Claude Code's hook events into states. Never prints anything: stdout from some
-# hooks (UserPromptSubmit, SessionStart) would be added to Claude's context.
-# Needs: clock, state; from bin/bytek: BYTEK_ROOT, BYTEK_HOME.
+# hooks: turns Claude Code's hook events into states. Prints nothing itself: stdout from some
+# hooks (UserPromptSubmit, SessionStart) is added to Claude's context, so the one thing meant
+# for it, the antenna reminder, is left in HOOKS_CONTEXT for bin/bytek to print.
+# Needs: clock, state, addon; from bin/bytek: BYTEK_ROOT, BYTEK_HOME.
 
 # Bytek's own command Claude runs to set the mood antenna, alone: "[path/]bytek addon <name>".
 # Combined with anything else (&&, ;, |), the command shows as usual.
@@ -62,7 +63,27 @@ EOF
   [ -n "$cwd" ] && file=${file#"$cwd"/}
 
   hooks_apply
+  hooks_antenna_context "$event"
   return 0
+}
+
+# What Claude needs to keep the mood antenna (lib/addon.sh) in step with the work, given on
+# session start (also after a compaction) and with each prompt. bin/bytek prints HOOKS_CONTEXT
+# on those two events only: their stdout goes to Claude's context, never into the chat
+# (docs/adr/0009-antenna-reminders.md). A file $BYTEK_HOME/config/antenna-reminders-off turns
+# it off.
+HOOKS_ANTENNA_INSTRUCTIONS="Bytek, the status line companion, has a mood antenna. Set it to fit the work: at the start of each task, and when the kind of work changes. Run: ~/.claude/bytek/current/bin/bytek addon <name>
+curious (exploring, debugging) · flow (building, one change after another) · star (tests pass, it works) · idea (a new approach) · sun (a fresh start) · flower (calm, steady) · lollipop (light task) · sleepy (long wait) · heart (warm, the default). Don't mention it unless asked."
+
+# Sets HOOKS_CONTEXT to what event $1 tells Claude about the antenna; empty for other events.
+hooks_antenna_context() {
+  HOOKS_CONTEXT=""
+  [ -e "$BYTEK_HOME/config/antenna-reminders-off" ] && return 0
+  addon_current
+  case "$1" in
+    SessionStart) HOOKS_CONTEXT="$HOOKS_ANTENNA_INSTRUCTIONS"$'\n'"Bytek's antenna: $REPLY." ;;
+    UserPromptSubmit) HOOKS_CONTEXT="Bytek's antenna: $REPLY." ;;
+  esac
 }
 
 # Applies the event to the state file. Reads what hooks_handle parsed (event, tool, file,

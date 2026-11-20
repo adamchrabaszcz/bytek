@@ -34,3 +34,4 @@ What becomes easier, what becomes harder, what we now have to keep doing.
 - [0006. JSON through jq, with programs in lib/*.jq](0006-jq-programs-in-files.md)
 - [0007. No lock on state files: edits are appended to a list](0007-no-lock-append-edits.md)
 - [0008. Files that outlive a version carry a format version](0008-versioned-file-formats.md)
+- [0009. Hooks remind Claude of the mood antenna](0009-antenna-reminders.md)
