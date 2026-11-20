@@ -20,4 +20,8 @@ def without_bytek:
   else . end
 # Claude may set the mood antenna without a permission prompt each time: $antenna_rule, once,
 # next to the user's own rules.
-| .permissions.allow = ((.permissions.allow // []) | if any(. == $antenna_rule) then . else . + [$antenna_rule] end)
+# (Only where permissions and its allow list have the usual shape; anything else is left alone,
+# as before setup knew about permissions.)
+| if ((.permissions // {}) | type) == "object" and ((.permissions.allow // []) | type) == "array" then
+    .permissions.allow = ((.permissions.allow // []) | if any(. == $antenna_rule) then . else . + [$antenna_rule] end)
+  else . end

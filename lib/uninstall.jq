@@ -22,7 +22,7 @@ else . end
   else . end
 # Only Bytek's own permission rule goes; an allow list (or permissions) left empty by that goes
 # too, so settings are what they were before setup.
-| if (.permissions.allow | type) == "array" then
+| if ((.permissions // {}) | type) == "object" and (.permissions.allow | type) == "array" then
     .permissions.allow |= map(select(. != $antenna_rule))
     | if .permissions.allow == [] then del(.permissions.allow) else . end
     | if .permissions == {} then del(.permissions) else . end

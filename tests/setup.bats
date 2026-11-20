@@ -213,3 +213,14 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
   "$BYTEK" uninstall >/dev/null
   assert_settings_equal "$TMP/with-rules.json"
 }
+
+@test "permissions of an unusual shape are left alone, and setup still works" {
+  local p
+  for p in '"x"' '{"allow": "x"}' '{"allow": {}}'; do
+    jq --argjson p "$p" '.permissions = $p' "$TMP/initial.json" >"$BYTEK_SETTINGS"
+    run "$BYTEK" setup
+    assert_success
+    assert_equal "$(jq -c .permissions "$BYTEK_SETTINGS")" "$(jq -c . <<<"$p")"
+    assert_equal "$(q .statusLine.command)" "\"$BYTEK_HOME/current/bin/bytek\" render"
+  done
+}

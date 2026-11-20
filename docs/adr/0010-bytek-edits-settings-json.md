@@ -21,4 +21,5 @@ Claude Code splits compound commands and checks each part, so the rule allows `b
 ## Consequences
 - Claude can change the antenna as often as the work changes, without prompts.
 - Bytek now adds a permission to people's settings: it has to stay this narrow, and any other rule needs a new record.
-- An `allow` list that was already empty before setup is removed on uninstall; nothing else of the user's changes.
+- An `allow` list that was already empty before setup is removed on uninstall, and so is the rule itself if the user had added exactly the same one; nothing else of the user's changes.
+- A `permissions` object or `allow` list that isn't the usual shape is left alone: no rule is added, and the status line is still set.

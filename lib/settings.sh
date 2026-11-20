@@ -9,7 +9,8 @@ SETTINGS_CMD_RE='/bin/bytek"? (render|hook)$'
 
 # The one permission setup adds: Claude may set the mood antenna without a prompt each time.
 # Claude Code splits compound commands, so it allows `bytek addon <name>` and nothing joined to
-# it, and the * comes after the subcommand, so it can't let other options in.
+# it, and the * comes after the subcommand, so it can't let other options in. The path must be
+# the one Claude is told to run (docs/mood-antenna.md), or the prompt comes back.
 SETTINGS_ANTENNA_RULE='Bash(~/.claude/bytek/current/bin/bytek addon *)'
 
 # Applies the jq program lib/$1 to settings.json, with jq options after it. Writes a temp
