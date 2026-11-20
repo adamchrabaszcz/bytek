@@ -46,12 +46,12 @@ render_bar() {
   if [[ "$1" =~ ^[0-9]+/[0-9]+$ ]] && [ "$m" -gt 0 ]; then
     filled=$((n * 5 / m))
     for i in 0 1 2 3 4; do
-      if [ "$i" -lt "$filled" ]; then bar="$bar▰"; else bar="$bar▱"; fi
+      if [ "$i" -lt "$filled" ]; then bar="${bar}▰"; else bar="${bar}▱"; fi
     done
     REPLY="$bar $n/$m"
   else
     for i in 0 1 2 3 4; do
-      if [ "$i" -eq $(($2 % 5)) ]; then bar="$bar▰"; else bar="$bar▱"; fi
+      if [ "$i" -eq $(($2 % 5)) ]; then bar="${bar}▰"; else bar="${bar}▱"; fi
     done
     REPLY="$bar"
   fi
