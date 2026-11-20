@@ -121,8 +121,11 @@ render_line() {
   render_cut "$detail" "$max"
   detail=$REPLY
 
-  printf '    %s%s\n' "$RENDER_ANTENNA" "${thought:+ $thought}"
-  printf ' ╭──┴──╮\n'
-  printf ' │ %s │  %s\n' "$frame" "$status"
-  printf ' ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"
+  # Claude Code trims the leading whitespace of each line, which would take the antenna's indent
+  # and shift the lines against each other: an invisible colour reset first keeps every line as
+  # it is, so the antenna stays above its stick.
+  printf '\033[0m    %s%s\n' "$RENDER_ANTENNA" "${thought:+ $thought}"
+  printf '\033[0m ╭──┴──╮\n'
+  printf '\033[0m │ %s │  %s\n' "$frame" "$status"
+  printf '\033[0m ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"
 }

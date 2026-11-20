@@ -8,6 +8,7 @@ load helpers
 assert_aligned() {
   local n=0 l1="" l2="" l3="" l4="" line
   while IFS= read -r line; do
+    line=${line#$'\033[0m'} # the invisible reset that keeps Claude Code from trimming the line
     n=$((n + 1))
     case $n in 1) l1=$line ;; 2) l2=$line ;; 3) l3=$line ;; 4) l4=$line ;; esac
   done <<<"$1"
@@ -67,4 +68,20 @@ assert_aligned() {
   "$BYTEK" set testing
   BYTEK_NOW=1002 run render
   assert_output --partial "▱▱▰▱▱"
+}
+
+@test "no line starts with whitespace, so trimming each line keeps the antenna above its stick" {
+  # Claude Code trims the leading whitespace of each status line row (#83).
+  local line trimmed=""
+  "$BYTEK" set thinking
+  run render
+  while IFS= read -r line; do
+    [[ "$line" != [[:space:]]* ]] || fail "a line starts with whitespace: '$line'"
+    # What Claude Code shows: each line trimmed, the invisible reset removed.
+    line=${line#"${line%%[![:space:]]*}"}
+    trimmed="$trimmed${line#$'\033[0m'}"$'\n'
+  done <<<"$output"
+  run printf '%s' "$trimmed"
+  assert_line --index 0 --partial "    ♡"
+  assert_line --index 1 " ╭──┴──╮"
 }
