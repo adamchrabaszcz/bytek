@@ -56,3 +56,15 @@ assert_aligned() {
   assert_success
   refute_output ""
 }
+
+@test "the progress bar shows filled cells and the count" {
+  "$BYTEK" set testing --progress 3/5
+  run render
+  assert_output --partial "▰▰▰▱▱ 3/5"
+}
+
+@test "unknown progress shows one cell sweeping along" {
+  "$BYTEK" set testing
+  BYTEK_NOW=1002 run render
+  assert_output --partial "▱▱▰▱▱"
+}
