@@ -19,11 +19,12 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/locale.sh` | picks a UTF-8 locale so text is counted in characters | nothing |
 | `lib/clock.sh` | the current time, file name stamps, durations: every `date` goes through it | nothing |
 | `lib/state.sh` | reads, writes and switches a session's state file; its edit list | nothing |
+| `lib/routines.sh` | the user's routines: reads `config/routines`, works out when each happens next | clock |
 | `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | nothing |
 | `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text | clock, state, addon |
 | `lib/hooks.sh` | turns hook events into states; the debug log; following plugin updates | clock, state |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
-| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings |
+| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines |
 
 The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq`, `original-statusline.jq` and `saved-statusline.jq` to settings.
 
@@ -36,7 +37,7 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 | `bytek hook` | locale, clock, state, hooks | if installed |
 | `bytek set` | locale, clock, state | no |
 | `bytek setup`, `uninstall` | locale, clock, settings | required |
-| `bytek doctor` | locale, clock, settings, doctor | if installed |
+| `bytek doctor` | locale, clock, settings, routines, doctor | if installed |
 | `bytek states`, `locale`, `help` | locale | no |
 
 ## Layers
@@ -44,7 +45,7 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 From the bottom up; a module uses only modules below it:
 
 1. **locale, clock**: the environment (locale, time).
-2. **state, addon**: shared data: the state file, and the mood antenna Claude picks.
+2. **state, addon, routines**: shared data: the state file, the mood antenna Claude picks, the user's routines.
 3. **render, hooks, settings**: the jobs; none of them uses another.
 4. **doctor**: checks an installation, using settings to recognise Bytek in `settings.json`.
 5. **bin/bytek**: paths, `die`, the small commands (`set`, `states`, `locale`), dispatch.

@@ -2,7 +2,7 @@
 # doctor: `bytek doctor` checks an installation and says what to fix, for people whose Bytek
 # doesn't show up and for bug reports. It reads settings.json only to see whether Bytek is in
 # it, and never prints anything from it (it can hold secrets).
-# Needs: settings (SETTINGS_CMD_RE); from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
+# Needs: settings (SETTINGS_CMD_RE), routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
 # BYTEK_UTF8, and $0 (the bytek it times).
 
 DOCTOR_BUDGET_MS=50 # the render budget (tests/speed.bats)
@@ -25,6 +25,7 @@ doctor_run() {
   doctor_locale
   doctor_settings
   doctor_state_folder
+  doctor_routines
   doctor_render_time
   [ "$DOCTOR_PROBLEMS" -eq 0 ]
 }
@@ -117,4 +118,19 @@ doctor_render_time() {
   else
     doctor_say warning "a render takes $ms ms, over the $DOCTOR_BUDGET_MS ms budget" "a busy machine can cause it; if it stays slow, report it with this output"
   fi
+}
+
+# The routines config, if there is one: lines it can't read are skipped on the status line, so
+# this is where people find out.
+doctor_routines() {
+  local line
+  [ -f "$ROUTINES_FILE" ] || return 0
+  routines_load
+  if [ -z "$ROUTINES_ERRORS" ]; then
+    doctor_say ok "routines: $ROUTINES_COUNT in $ROUTINES_FILE"
+    return
+  fi
+  while IFS= read -r line; do
+    [ -n "$line" ] && doctor_say warning "routines, $line" "fix that line in $ROUTINES_FILE (format: examples/routines.example)"
+  done <<<"$ROUTINES_ERRORS"
 }

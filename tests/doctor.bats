@@ -78,3 +78,15 @@ setup() {
   assert_success
   assert_output --partial "warning  no UTF-8 locale"
 }
+
+@test "a routines config is checked: its routines counted, broken lines named" {
+  "$BYTEK" setup --hooks >/dev/null
+  mkdir -p "$BYTEK_HOME/config"
+  printf 'lunch = daily 12:30\nwalk = daily 25:00\n' >"$BYTEK_HOME/config/routines"
+  run "$BYTEK" doctor
+  assert_success # a broken routine is a warning: the others still work
+  assert_output --partial "warning  routines, line 2: walk: not a time: 25:00"
+  printf 'lunch = daily 12:30\n' >"$BYTEK_HOME/config/routines"
+  run "$BYTEK" doctor
+  assert_output --partial "ok       routines: 1 in $BYTEK_HOME/config/routines"
+}

@@ -1,0 +1,123 @@
+#!/usr/bin/env bats
+# lib/routines.sh: reading the routines config and finding each routine's next occurrence,
+# at fixed moments in UTC.
+# ROUTINES_* are set by the module under test, and each test runs in its own subshell on purpose:
+# shellcheck disable=SC2154,SC2030,SC2031
+
+load ../helpers
+
+setup() {
+  bytek_setup
+  export TZ=UTC
+  load_module clock routines
+}
+
+# Prints seconds since 1970 for "YYYY-MM-DD HH:MM" in UTC (GNU date, or macOS's, which fills
+# in the current seconds unless they're given).
+at() {
+  date -u -d "$1" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$1:00" +%s
+}
+
+# Loads config lines $@ (one routine per argument).
+config() {
+  printf '%s\n' "$@" >"$TMP/routines"
+  routines_load "$TMP/routines"
+}
+
+# Fails unless routine number $1's next occurrence, from moment "$2", runs from "$3" to "$4"
+# ("YYYY-MM-DD HH:MM"; $4 defaults to $3).
+assert_next() {
+  clock_fields "$(at "$2")"
+  routines_next "$1" || fail "no occurrence after $2"
+  assert_equal "$REPLY" "$(at "$3") $(at "${4:-$3}")"
+}
+
+@test "daily times: the next one today, else the first tomorrow" {
+  config "stretch = daily 15:00, 10:30"
+  assert_next 0 "2025-11-30 11:00" "2025-11-30 15:00"
+  assert_next 0 "2025-11-30 15:01" "2025-12-01 10:30"
+}
+
+@test "a window is current while it lasts, then the next day's" {
+  config "walk = daily 19:00-20:00"
+  assert_next 0 "2025-11-30 19:30" "2025-11-30 19:00" "2025-11-30 20:00"
+  assert_next 0 "2025-11-30 20:01" "2025-12-01 19:00" "2025-12-01 20:00"
+}
+
+@test "weekdays skip the weekend; named days only those days" {
+  config "wrap_up = weekdays 16:30" "training = tue,thu 18:30"
+  assert_next 0 "2025-11-29 09:00" "2025-12-01 16:30" # Saturday → Monday
+  assert_next 1 "2025-11-26 19:00" "2025-11-27 18:30" # Wednesday → Thursday
+  assert_next 1 "2025-11-27 19:00" "2025-12-02 18:30" # Thursday after → Tuesday
+}
+
+@test "monthly on a day; a day a month doesn't have is skipped" {
+  config "rent = monthly 15 09:00" "late = monthly 31 09:00"
+  assert_next 0 "2025-11-20 10:00" "2025-12-15 09:00"
+  assert_next 1 "2025-11-01 10:00" "2025-12-31 09:00" # November has no 31st
+}
+
+@test "the last workday of a month, also when the month ends on a weekend" {
+  config "invoice = monthly last-workday 10:00"
+  assert_next 0 "2025-11-20 09:00" "2025-11-28 10:00" # 30 Nov 2025 is a Sunday → Friday 28th
+  assert_next 0 "2025-11-28 11:00" "2025-12-31 10:00"
+  assert_next 0 "2026-02-01 09:00" "2026-02-27 10:00" # 28 Feb 2026 is a Saturday
+}
+
+@test "a season, also one running over New Year" {
+  config "training = tue,thu 18:30 | months 4-10" "gym = mon 18:00 | months 10-4"
+  assert_next 0 "2025-11-30 11:00" "2026-04-02 18:30"
+  assert_next 1 "2026-06-15 09:00" "2026-10-05 18:00"
+  assert_next 1 "2026-12-31 09:00" "2027-01-04 18:00"
+}
+
+@test "over the end of a year, and a leap day" {
+  config "lunch = daily 12:30" "leap = monthly 29 09:00"
+  assert_next 0 "2025-12-31 13:00" "2026-01-01 12:30"
+  assert_next 1 "2027-02-01 09:00" "2027-03-29 09:00" # 2027 has no 29 February
+  assert_next 1 "2028-02-01 09:00" "2028-02-29 09:00"
+}
+
+@test "comments, blank lines and options are read; disabled routines are left out" {
+  config "# my routines" "" "lunch = daily 12:30 | icon bowl | heads_up 10m" "old = daily 08:00 | disable"
+  assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[*]}|${ROUTINES_OPTIONS[0]}" "1|lunch|icon bowl|heads_up 10m"
+  assert_equal "$ROUTINES_ERRORS" ""
+}
+
+@test "broken lines are skipped and named, the others still load" {
+  config "lunch = daily 12:30" "no equals sign" "Bad = daily 10:00" "x = sometimes 10:00" \
+    "y = daily 25:00" "z = daily 22:00-01:00" "w = monthly 32 09:00" "v = daily 10:00 | months 13" \
+    "lunch = daily 13:00" "u = daily"
+  assert_equal "$ROUTINES_COUNT" 1
+  run printf '%s' "$ROUTINES_ERRORS"
+  assert_line --partial 'line 2: no "name = schedule"'
+  assert_line --partial "line 3: not a name: Bad"
+  assert_line --partial "line 4: x: unknown schedule: sometimes"
+  assert_line --partial "line 5: y: not a time: 25:00"
+  assert_line --partial "line 6: z: window ends before it starts"
+  assert_line --partial "line 7: w: monthly needs a day 1-31"
+  assert_line --partial "line 8: v: months needs 1-12"
+  assert_line --partial "line 9: lunch is already defined"
+  assert_line --partial "line 10: u: no time given"
+}
+
+@test "no config file means no routines" {
+  routines_load "$TMP/none"
+  assert_equal "$ROUTINES_COUNT|$ROUTINES_ERRORS" "0|"
+}
+
+@test "a * or ? in the config isn't matched against files in the current folder" {
+  mkdir "$TMP/project"
+  touch "$TMP/project/10:00" "$TMP/project/r"
+  cd "$TMP/project"
+  config "a = daily *" "b = mo? 10:00"
+  assert_equal "$ROUTINES_COUNT" 0
+  run printf '%s' "$ROUTINES_ERRORS"
+  assert_line --partial "line 1: a: not a time: *"
+  assert_line --partial "line 2: b: unknown schedule: mo?"
+}
+
+@test "tabs separate like spaces in the config" {
+  config $'lunch\t=\tdaily\t12:30'
+  assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[0]}|${ROUTINES_TIMES[0]}" "1|lunch|750-750"
+}
