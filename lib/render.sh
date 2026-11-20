@@ -5,7 +5,7 @@
 # Needs: clock, state, addon, routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 RENDER_SPINNER="◜|◝|◞|◟"
-RENDER_REMINDER_ICON="◷" # before a routine's reminder, until routines bring their own icons (#12)
+RENDER_REMINDER_ICON="◷"                       # before a routine's reminder, until routines bring their own icons (#12)
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
 
