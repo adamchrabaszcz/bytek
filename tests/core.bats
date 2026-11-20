@@ -130,3 +130,19 @@ assert_aligned() {
     done
   done
 }
+
+@test "every companion renders aligned in every stage and frame" {
+  local companion at out
+  export TZ=UTC
+  mkdir -p "$BYTEK_HOME/config"
+  "$BYTEK" set editing lib/a.ts --status "editing 3 files"
+  for companion in "$ROOT"/companions/*; do
+    companion=${companion##*/}
+    printf 'r = daily 12:30-12:40 | icon %s | heads_up 10m\n' "$companion" >"$BYTEK_HOME/config/routines"
+    # 30 Nov 2025 (UTC): heads-up at 12:25, due at 12:35 (two ticks), overdue at 12:50.
+    for at in 1764505500 1764506100 1764506101 1764507000; do
+      out=$(printf '{"session_id":"none"}' | BYTEK_NOW=$at "$BYTEK" render)
+      assert_aligned "$out" "$companion@$at"
+    done
+  done
+}

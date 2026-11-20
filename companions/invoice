@@ -1,0 +1,7 @@
+# An invoice to file, with a thought while it's due.
+icon: [$]
+due: [$]
+due_text: file your invoice today
+due_face: ◕ᴗ◕
+due_thought: !
+overdue: [$]

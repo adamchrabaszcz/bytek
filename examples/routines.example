@@ -4,12 +4,12 @@
 # Schedules: daily, weekdays, days like tue,thu, monthly <1-31> or monthly last-workday,
 # each followed by times (10:30, 15:00) or windows (19:00-20:00).
 # Options: months 4-10 (a season; 10-4 runs over New Year), disable, and for the reminders:
-# icon <name>, heads_up <10m, 1h, 1d>, overdue <20m> (how long it stays after its time; default 20m),
+# icon <name> (a companion in companions/: dog, meal, report, invoice), heads_up <10m, 1h, 1d>, overdue <20m> (how long it stays after its time; default 20m),
 # clear idle, action <name>.
 
-stretch  = daily 10:30, 15:00                     | icon stretch  | heads_up 5m  | clear idle
-lunch    = daily 12:30                            | icon bowl     | heads_up 10m | clear idle
+stretch  = daily 10:30, 15:00                     | heads_up 5m                  | clear idle
+lunch    = daily 12:30                            | icon meal     | heads_up 10m | clear idle
 walk     = daily 19:00-20:00                      | icon dog      | heads_up 10m | clear idle
-training = tue,thu 18:30 | months 4-10            | icon bike     | heads_up 30m
+training = tue,thu 18:30 | months 4-10            | heads_up 30m
 wrap_up  = weekdays 16:30                         | icon report   | heads_up 30m | action daily_summary
 invoice  = monthly last-workday 10:00             | icon invoice  | heads_up 1d  | action monthly_invoice

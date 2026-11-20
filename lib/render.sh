@@ -5,9 +5,10 @@
 # Needs: clock, state, addon, routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 RENDER_SPINNER="◜|◝|◞|◟"
-RENDER_REMINDER_ICON="◷"                       # before a routine's reminder, until routines bring their own icons (#12)
+RENDER_REMINDER_ICON="◷"                       # before a routine's reminder when no companion stands in for it (companions/)
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
+RENDER_COMPANION_FORMAT=1                      # the newest companion file format this version reads
 
 # Splits a "a|b|c" frame list and sets REPLY to the element for tick $2.
 # Leading spaces inside a frame are kept (used for bouncing marks).
@@ -39,6 +40,47 @@ render_face() {
       frames | thought | status | detail | format) printf -v "F_$key" '%s' "$val" ;;
     esac
   done <"$1"
+}
+
+# Reads companion file $1 (companions/<name>, docs/architecture/data-files.md) into C_icon,
+# C_due, C_due_text, C_due_face, C_due_thought, C_leash, C_overdue, C_overdue_text. Returns 1,
+# with nothing set, when the file is missing or in a newer format than this Bytek reads.
+render_companion() {
+  local line key val format=1
+  C_icon="" C_due="" C_due_text="" C_due_face="" C_due_thought="" C_leash="" C_overdue="" C_overdue_text=""
+  [ -f "$1" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '' | '#'*) continue ;; esac
+    key=${line%%:*}
+    val=${line#*:}
+    val=${val# }
+    case "$key" in
+      format) format=$val ;;
+      icon | due | due_text | due_face | due_thought | leash | overdue | overdue_text) printf -v "C_$key" '%s' "$val" ;;
+    esac
+  done <"$1"
+  if ! [[ "$format" =~ ^[0-9]+$ ]] || [ "$format" -gt "$RENDER_COMPANION_FORMAT" ]; then
+    C_icon="" C_due="" C_due_text="" C_due_face="" C_due_thought="" C_leash="" C_overdue="" C_overdue_text=""
+    return 1
+  fi
+}
+
+# Sets REPLY to the frame of "a|b|c" $1 for tick $2, padded with spaces to its widest frame, so
+# a companion whose frames differ in width (a wagging tail) doesn't shift what follows it.
+render_pick_padded() {
+  # Without a UTF-8 locale lengths are bytes, and padding would shift the frames: no padding.
+  if [ "$BYTEK_UTF8" != 1 ]; then
+    render_pick "$1" "$2"
+    return
+  fi
+  local IFS='|' f width=0
+  set -f
+  # shellcheck disable=SC2206 # splitting on IFS='|' (globbing off) is the point; no mapfile in 3.2
+  local frames=($1)
+  set +f
+  for f in "${frames[@]}"; do [ "${#f}" -gt "$width" ] && width=${#f}; done
+  render_pick "$1" "$2"
+  while [ "${#REPLY}" -lt "$width" ]; do REPLY="$REPLY "; done
 }
 
 # Sets REPLY to a 5-cell bar: "▰▰▰▱▱ 3/5" for N/M in $1, or a cell sweeping with tick $2
@@ -127,27 +169,56 @@ render_line() {
   detail=${detail//\{arg\}/$S_arg}
 
   # A routine's reminder (lib/routines.sh) goes first in the status, what Claude does after it.
-  local reminder=""
+  # With a companion (companions/<icon>), the companion stands next to Bytek at the start of the
+  # detail row, and while due it may bring its own text, face, thought and a leash to the box.
+  local reminder="" text companion="" leash=""
   if [ -f "$ROUTINES_FILE" ]; then
     routines_load
     routines_reminder
     if [ -n "$ROUTINES_TEXT" ]; then
-      reminder="$RENDER_REMINDER_ICON $ROUTINES_TEXT"
+      text=$ROUTINES_TEXT
+      if [ -n "$ROUTINES_SHOWN_ICON" ] && render_companion "$BYTEK_ROOT/companions/$ROUTINES_SHOWN_ICON"; then
+        case "$ROUTINES_STAGE" in
+          heads_up) companion=$C_icon ;;
+          due)
+            render_pick_padded "$C_due" "$tick"
+            companion=$REPLY
+            [ -n "$C_due_text" ] && text=$C_due_text
+            if [ -n "$C_due_face" ]; then
+              render_pick "$C_due_face" "$tick"
+              frame=$REPLY
+            fi
+            [ -n "$C_due_thought" ] && thought=$C_due_thought
+            [ "$C_leash" = yes ] && [ -n "$companion" ] && leash=1
+            ;;
+          overdue)
+            render_pick_padded "$C_overdue" "$tick"
+            companion=$REPLY
+            [ -n "$C_overdue_text" ] && text=$C_overdue_text
+            ;;
+        esac
+        text=${text//\{routine\}/${ROUTINES_SHOWN_NAME//_/ }}
+        # A companion file may leave a stage out: then that stage keeps the ◷.
+        if [ -n "$companion" ]; then reminder=$text; else reminder="$RENDER_REMINDER_ICON $text"; fi
+      else
+        reminder="$RENDER_REMINDER_ICON $text"
+      fi
       [ "$ROUTINES_MORE" -gt 0 ] && reminder="$reminder +$ROUTINES_MORE"
       status="$reminder${status:+ · $status}"
     fi
   fi
 
   # The bot and its gaps take 10 columns; keep the text inside the terminal. Cutting from the
-  # right shortens the work status first, so the reminder stays readable.
+  # right shortens the work status first, so the reminder stays readable; the leash takes a
+  # column from the status row, the companion its width from the detail row.
   if [ -n "$COLUMNS" ] && [ "$COLUMNS" -gt 12 ] 2>/dev/null; then max=$((COLUMNS - 12)); fi
-  render_cut "$status" "$max"
+  render_cut "$status" "${max:+$((max - ${leash:-0}))}"
   status=$REPLY
   # An overdue reminder in bold, added after cutting so the codes don't count as characters.
   if [ "$ROUTINES_STAGE" = overdue ] && [ -n "$reminder" ] && [[ "$status" == "$reminder"* ]]; then
     status=$'\033[1m'"$reminder"$'\033[22m'"${status#"$reminder"}"
   fi
-  render_cut "$detail" "$max"
+  render_cut "$detail" "${max:+$((max - ${#companion}))}"
   detail=$REPLY
 
   # Claude Code trims the leading whitespace of each line, which would take the antenna's indent
@@ -158,6 +229,15 @@ render_line() {
   render_pick "$ADDON_FRAMES" "$tick"
   printf '\033[0m    %s%s\n' "$REPLY" "${thought:+ $thought}"
   printf '\033[0m ╭──┴──╮\n'
-  printf '\033[0m │ %s │  %s\n' "$frame" "$status"
-  printf '\033[0m ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"
+  if [ -n "$leash" ]; then
+    # The companion on a leash: ╮ on the box's right edge, ╰ leading down to it.
+    printf '\033[0m │ %s │╮  %s\n' "$frame" "$status"
+    printf '\033[0m ╰─┬─┬─╯╰%s \033[2m%s\033[0m\n' "$companion" "$detail"
+  elif [ -n "$companion" ]; then
+    printf '\033[0m │ %s │  %s\n' "$frame" "$status"
+    printf '\033[0m ╰─┬─┬─╯ %s \033[2m%s\033[0m\n' "$companion" "$detail"
+  else
+    printf '\033[0m │ %s │  %s\n' "$frame" "$status"
+    printf '\033[0m ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"
+  fi
 }

@@ -191,3 +191,10 @@ assert_reminder() {
   assert_line --partial "line 2: b: overdue needs a time like 10m, 2h or 1d"
   assert_line --partial "line 3: c: heads_up needs a time like 10m, 2h or 1d"
 }
+
+@test "the icon picks a companion; one that isn't a name makes the line broken" {
+  config "walk = daily 19:00 | icon dog" "bad = daily 10:00 | icon ../x"
+  assert_equal "$ROUTINES_COUNT|${ROUTINES_ICON[0]}" "1|dog"
+  run printf '%s' "$ROUTINES_ERRORS"
+  assert_line --partial "line 2: bad: icon needs a name like dog or meal"
+}

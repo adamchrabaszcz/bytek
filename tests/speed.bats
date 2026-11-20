@@ -11,6 +11,10 @@ setup() {
   bytek_setup
   mkdir -p "$BYTEK_HOME/config"
   cp "$ROOT/examples/routines.example" "$BYTEK_HOME/config/routines"
+  # A fixed moment, so every run measures the same thing whenever CI happens to run: Sunday
+  # 30 Nov 2025, 19:30 UTC, when the example's walk is due with the dog on its leash (the most
+  # expensive reminder to draw) and the other routines are worked out too.
+  export TZ=UTC BYTEK_NOW=1764531000
 }
 
 # Renders every state $1 times; writes the number of renders to $TMP/count.
