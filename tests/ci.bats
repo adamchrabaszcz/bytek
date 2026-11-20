@@ -58,3 +58,42 @@ triggers() {
   [ -z "$problems" ] || fail "$problems"
   grep -q 'package-ecosystem: bundler' "$ROOT/.github/dependabot.yml"
 }
+
+@test "the AI review runs when a pull request opens or is ready, not on every push" {
+  run triggers claude-review.yml
+  assert_output --partial "types: [opened, ready_for_review]"
+  refute_output --partial "synchronize"
+  refute_output --partial "push"
+}
+
+@test "the AI review skips drafts and pull requests without secrets, and can't push" {
+  run job claude-review.yml review
+  assert_output --partial "!github.event.pull_request.draft"
+  assert_output --partial "github.event.pull_request.user.login != 'dependabot[bot]'"
+  assert_output --partial "github.event.pull_request.head.repo.full_name == github.repository"
+  assert_output --partial "contents: read"
+  refute_output --partial "contents: write"
+  assert_output --partial 'claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}'
+}
+
+@test "@claude answers comments and reviews, reading only, with the subscription token" {
+  run triggers claude.yml
+  assert_output --partial "issue_comment:"
+  assert_output --partial "pull_request_review_comment:"
+  assert_output --partial "pull_request_review:"
+  run job claude.yml claude
+  refute_output --partial "contents: write"
+  refute_output --partial "anthropic_api_key"
+  assert_output --partial 'claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}'
+}
+
+@test "the AI review follows the repository's rules, rates findings and ends with a verdict" {
+  run cat "$WORKFLOWS/claude-review.yml"
+  assert_output --partial "AGENTS.md"
+  assert_output --partial "CONTRIBUTING.md"
+  assert_output --partial "definition of done"
+  assert_output --partial '"**blocking**"'
+  assert_output --partial '"**Ready to merge**"'
+  assert_output --partial "Never approve"
+  assert_output --partial "--max-turns"
+}

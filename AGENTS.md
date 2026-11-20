@@ -12,7 +12,7 @@ This file is the rulebook for coding agents. The details behind it are in `CONTR
 4. Ask before any outward-facing action beyond pushing a branch and opening its pull request: comments on issues and pull requests, creating or editing issues, releases, tags, repository settings.
 5. Destructive commands (deleting branches, tags or files outside your change) need explicit confirmation for that specific action, with the evidence shown first.
 6. Never read, print or quote local secret files (`~/.claude/settings.json`, `.env` files, credential stores), or copy their contents into this repo.
-7. This repo needs no secrets in its files. Never add one, not even as an example value. CI's only token, `CODECOV_TOKEN`, is a GitHub Actions secret in the repository settings.
+7. This repo needs no secrets in its files. Never add one, not even as an example value. CI's tokens, `CODECOV_TOKEN` and `CLAUDE_CODE_OAUTH_TOKEN` (the AI review), are GitHub Actions secrets in the repository settings.
 8. No personal data in code, tests, examples, issues or commits: no names, places, schedules or paths from anyone's machine. Personal values live in the user's `~/.claude/bytek/config/`, never in the repo.
 
 ## Decide on your own
@@ -71,3 +71,17 @@ CI (`.github/workflows/test.yml`) runs lint and the tests on Linux and on macOS 
 
 - **ADRs** (`docs/adr/`): a decision that is costly to reverse or that people will ask "why?" about (language, file formats, what Bytek may edit, dependencies) gets a numbered record. Records are never deleted; a changed decision gets a new record that supersedes the old one. Template in `docs/adr/README.md`.
 - **Patterns** (`docs/patterns/`): a code shape used in several places, with the anti-pattern it replaces. Follow them; when you add a pattern, add its file.
+
+## Code review
+
+Claude reviews each pull request when it's opened or marked ready (`.github/workflows/claude-review.yml`); `@claude review` in a comment asks for another pass. When reviewing, look first at what CI can't see:
+
+- **Bash 3.2:** anything newer that slips through (`docs/adr/0004-bash-3-2-compatible.md`), `"$var▰"` without braces.
+- **The render path:** a new subprocess, jq or network call in `bytek render` (50 ms budget).
+- **Hooks:** anything printed to stdout, a way to exit non-zero or hang.
+- **Outside text:** hook fields, command-line text or cache contents that reach the terminal without the control-character filter.
+- **Files people already have:** a state, face or config format change without a version bump (`docs/architecture/data-files.md`).
+- **Tests:** a change without a test that fails without it; a test that depends on timing.
+- **No personal data or secrets** in code, tests, docs or examples.
+
+Skip what ShellCheck, shfmt and the tests already catch. If nothing important turns up, say so briefly.
