@@ -117,6 +117,8 @@ Optional. #n, when it is one step of bigger work (also add it as a sub-issue the
 
 After CI passes on `main`, `.github/workflows/release.yml` tags the commit and publishes a GitHub release with the merged pull requests as notes, if the merge shipped something. The version follows the commit types since the last release (`tools/release.sh`): a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) → major, `feat` → minor, `fix` / `perf` → patch. `docs`, `ci`, `chore`, `test`, `refactor`, `style` and `build` make no release. So the commit type matters: it decides the version. The first release is `v0.1.0`.
 
+Every release also carries `bytek.zip`, the plugin as Claude Code installs it, with the release's version in its `plugin.json` (`tools/plugin-zip.sh`). The `plugin.json` in the repository has no version: the version exists only in releases, so nothing is committed to `main` for it. Once the repository is public, the marketplace entry points at the newest release's zip (`releases/latest/download/bytek.zip`), so people get updates when a release ships, not on every merge.
+
 After a release, every pull request in it and every issue those closed get the milestone `vX.Y.Z` and a "Released in vX.Y.Z" comment (`tools/release-marks.sh`), so an issue shows which version shipped it.
 
 ## Checks
