@@ -211,7 +211,8 @@ render_line() {
             due) named=$C_due_named ;;
             overdue) named=$C_overdue_named ;;
           esac
-          [ -n "$named" ] && text=${named//\{name\}/$REPLY}
+          # Quoted: from bash 5.2 an & in the replacement would stand for the matched text.
+          [ -n "$named" ] && text=${named//\{name\}/"$REPLY"}
         fi
         text=${text//\{in\}/$ROUTINES_SHOWN_WHEN}
         text=${text//\{routine\}/${ROUTINES_SHOWN_NAME//_/ }}

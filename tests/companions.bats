@@ -55,8 +55,19 @@ row_at() {
 @test "Claude naming a companion doesn't change what Bytek shows; anything more does" {
   needs_jq
   hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"/r/a.ts"}}'
-  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"~/.claude/bytek/current/bin/bytek name dog Rex the Second"}}'
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"~/.claude/bytek/current/bin/bytek name dog Rex"}}'
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"bytek name dog \"Rex the Second\""}}'
   assert_state s1 state reading
   hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"bytek name dog $(npm test)"}}'
   assert_state s1 state testing
+  # A second command on the next line (line breaks reach the match as spaces).
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"/r/a.ts"}}'
+  hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"bytek name dog Rex\nnpm test"}}'
+  assert_state s1 state testing
+}
+
+@test "an & in a name shows as it is" {
+  "$BYTEK" name dog "Tom & Jerry"
+  run row_at 18:52
+  assert_output " │ ≧ᴗ≦ │  Tom & Jerry's walk in 8m · editing 3 files"
 }
