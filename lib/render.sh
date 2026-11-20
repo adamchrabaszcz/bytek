@@ -121,7 +121,9 @@ render_line() {
   render_cut "$detail" "$max"
   detail=$REPLY
 
-  printf '    %s%s\n' "$RENDER_ANTENNA" "${thought:+ $thought}"
+  # Claude Code trims whitespace from the start of the output, which would take the antenna's
+  # indent: an invisible colour reset first keeps it in column 5.
+  printf '\033[0m    %s%s\n' "$RENDER_ANTENNA" "${thought:+ $thought}"
   printf ' ╭──┴──╮\n'
   printf ' │ %s │  %s\n' "$frame" "$status"
   printf ' ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"

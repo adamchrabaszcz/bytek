@@ -12,6 +12,7 @@ assert_aligned() {
     case $n in 1) l1=$line ;; 2) l2=$line ;; 3) l3=$line ;; 4) l4=$line ;; esac
   done <<<"$1"
   [ "$n" -eq 4 ] || fail "$2: expected 4 lines, got $n"
+  l1=${l1#$'\033[0m'} # the invisible reset that keeps Claude Code from trimming the indent
   [ "${l1:0:4}" = "    " ] || fail "$2: antenna not in column 5: '$l1'"
   [ "${l1:4:1}" != " " ] || fail "$2: antenna missing: '$l1'"
   [ "$l2" = " ╭──┴──╮" ] || fail "$2: box top shifted: '$l2'"
@@ -67,4 +68,15 @@ assert_aligned() {
   "$BYTEK" set testing
   BYTEK_NOW=1002 run render
   assert_output --partial "▱▱▰▱▱"
+}
+
+@test "the output doesn't start with whitespace, so trimming keeps the antenna's column" {
+  # Claude Code trims whitespace from the start of the status line's output (#83).
+  "$BYTEK" set thinking
+  run render
+  [[ "$output" != [[:space:]]* ]] || fail "output starts with whitespace: '${output:0:10}'"
+  local trimmed="${output#"${output%%[![:space:]]*}"}" first
+  first=${trimmed%%$'\n'*}
+  first=${first#$'\033[0m'}
+  assert_equal "${first:0:5}" "    ♡"
 }
