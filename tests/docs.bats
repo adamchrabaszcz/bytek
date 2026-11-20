@@ -49,3 +49,15 @@ load helpers
   git -C "$ROOT" rev-parse 2>/dev/null || skip "not a git checkout"
   git -C "$ROOT" check-ignore -q .plan/notes.md || fail ".plan/ is not in .gitignore"
 }
+
+@test "the architecture docs exist and the overview names every module" {
+  local f m problems=""
+  for f in overview bounded-contexts data-files; do
+    [ -s "$ROOT/docs/architecture/$f.md" ] || problems="${problems}docs/architecture/$f.md is missing"$'\n'
+  done
+  for m in "$ROOT"/lib/*.sh; do
+    m="lib/${m##*/}"
+    grep -qF "\`$m\`" "$ROOT/docs/architecture/overview.md" || problems="$problems$m: not in docs/architecture/overview.md"$'\n'
+  done
+  [ -z "$problems" ] || fail "$problems"
+}
