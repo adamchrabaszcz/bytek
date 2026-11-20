@@ -9,6 +9,32 @@ permissions:
   contents: read
 
 jobs:
+  # ShellCheck and shfmt (tools/lint.sh), at the exact versions contributors use locally,
+  # downloaded from their GitHub releases and checked against their SHA-256 digests.
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      SHELLCHECK_VERSION: v0.11.0
+      SHELLCHECK_SHA256: b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
+      SHFMT_VERSION: v3.14.1
+      SHFMT_SHA256: 76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install ShellCheck and shfmt
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo shellcheck.tar.gz "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.gz"
+          echo "$SHELLCHECK_SHA256  shellcheck.tar.gz" | sha256sum -c -
+          tar -xzf shellcheck.tar.gz
+          mv "shellcheck-$SHELLCHECK_VERSION/shellcheck" bin/
+          curl -fsSLo bin/shfmt "https://github.com/mvdan/sh/releases/download/$SHFMT_VERSION/shfmt_${SHFMT_VERSION}_linux_amd64"
+          echo "$SHFMT_SHA256  bin/shfmt" | sha256sum -c -
+          chmod +x bin/shfmt
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Lint
+        run: tools/lint.sh
+
   test:
     strategy:
       fail-fast: false
