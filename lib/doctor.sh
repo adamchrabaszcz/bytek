@@ -2,7 +2,7 @@
 # doctor: `bytek doctor` checks an installation and says what to fix, for people whose Bytek
 # doesn't show up and for bug reports. It reads settings.json only to see whether Bytek is in
 # it, and never prints anything from it (it can hold secrets).
-# Needs: settings (SETTINGS_CMD_RE), routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
+# Needs: settings (SETTINGS_CMD_RE), routines, companions; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
 # BYTEK_UTF8, and $0 (the bytek it times).
 
 DOCTOR_BUDGET_MS=50 # the render budget (tests/speed.bats)
@@ -26,6 +26,7 @@ doctor_run() {
   doctor_settings
   doctor_state_folder
   doctor_routines
+  doctor_companions
   doctor_render_time
   [ "$DOCTOR_PROBLEMS" -eq 0 ]
 }
@@ -133,4 +134,24 @@ doctor_routines() {
   while IFS= read -r line; do
     [ -n "$line" ] && doctor_say warning "routines, $line" "fix that line in $ROUTINES_FILE (format: examples/routines.example)"
   done <<<"$ROUTINES_ERRORS"
+}
+
+# The companion names (lib/companions.sh): every line names a companion that exists.
+doctor_companions() {
+  local line key n=0 bad=0
+  [ -f "$COMPANIONS_NAMES" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '' | '#'*) continue ;; esac
+    key=${line%%=*}
+    key=${key//[[:space:]]/}
+    if [[ "$line" != *=* ]] || ! [[ "$key" =~ ^[a-z][a-z-]*$ ]] || [ ! -f "$BYTEK_ROOT/companions/$key" ]; then
+      companions_clean "$line"
+      doctor_say warning "companion names, not a known companion: $REPLY" "fix it with: bytek name <companion> <Name> (see: bytek name)"
+      bad=$((bad + 1))
+    else
+      n=$((n + 1))
+    fi
+  done <"$COMPANIONS_NAMES"
+  [ "$bad" = 0 ] && doctor_say ok "companion names: $n in $COMPANIONS_NAMES"
+  return 0
 }

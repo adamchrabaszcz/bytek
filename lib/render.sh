@@ -2,7 +2,7 @@
 # shellcheck disable=SC2154 # S_<key> comes from lib/state.sh (state_load)
 # render: draws the status line from a session's state and its face file. This is the render
 # path: local files only, no jq, as few subprocesses as possible (50 ms budget).
-# Needs: clock, state, addon, routines; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
+# Needs: clock, state, addon, routines, companions; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 RENDER_SPINNER="◜|◝|◞|◟"
 RENDER_REMINDER_ICON="◷"                       # before a routine's reminder when no companion stands in for it (companions/)
@@ -43,11 +43,13 @@ render_face() {
 }
 
 # Reads companion file $1 (companions/<name>, docs/architecture/data-files.md) into C_icon,
-# C_due, C_due_text, C_due_face, C_due_thought, C_leash, C_overdue, C_overdue_text. Returns 1,
-# with nothing set, when the file is missing or in a newer format than this Bytek reads.
+# C_due, C_due_text, C_due_face, C_due_thought, C_leash, C_overdue, C_overdue_text, and the
+# variants used when the companion has a name: C_heads_up_named, C_due_named, C_overdue_named.
+# Returns 1, with nothing set, when the file is missing or in a newer format than this Bytek reads.
 render_companion() {
   local line key val format=1
   C_icon="" C_due="" C_due_text="" C_due_face="" C_due_thought="" C_leash="" C_overdue="" C_overdue_text=""
+  C_heads_up_named="" C_due_named="" C_overdue_named=""
   [ -f "$1" ] || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in '' | '#'*) continue ;; esac
@@ -56,11 +58,14 @@ render_companion() {
     val=${val# }
     case "$key" in
       format) format=$val ;;
-      icon | due | due_text | due_face | due_thought | leash | overdue | overdue_text) printf -v "C_$key" '%s' "$val" ;;
+      icon | due | due_text | due_face | due_thought | leash | overdue | overdue_text | heads_up_named | due_named | overdue_named)
+        printf -v "C_$key" '%s' "$val"
+        ;;
     esac
   done <"$1"
   if ! [[ "$format" =~ ^[0-9]+$ ]] || [ "$format" -gt "$RENDER_COMPANION_FORMAT" ]; then
     C_icon="" C_due="" C_due_text="" C_due_face="" C_due_thought="" C_leash="" C_overdue="" C_overdue_text=""
+    C_heads_up_named="" C_due_named="" C_overdue_named=""
     return 1
   fi
 }
@@ -197,6 +202,18 @@ render_line() {
             [ -n "$C_overdue_text" ] && text=$C_overdue_text
             ;;
         esac
+        # With a name for the companion (lib/companions.sh), its named text for the stage wins.
+        companions_name "$ROUTINES_SHOWN_ICON"
+        if [ -n "$REPLY" ]; then
+          local named=""
+          case "$ROUTINES_STAGE" in
+            heads_up) named=$C_heads_up_named ;;
+            due) named=$C_due_named ;;
+            overdue) named=$C_overdue_named ;;
+          esac
+          [ -n "$named" ] && text=${named//\{name\}/$REPLY}
+        fi
+        text=${text//\{in\}/$ROUTINES_SHOWN_WHEN}
         text=${text//\{routine\}/${ROUTINES_SHOWN_NAME//_/ }}
         # A companion file may leave a stage out: then that stage keeps the ◷.
         if [ -n "$companion" ]; then reminder=$text; else reminder="$RENDER_REMINDER_ICON $text"; fi

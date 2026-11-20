@@ -108,8 +108,15 @@ One per companion, in the repository; a routine picks one with `icon <name>`. Pl
 | `leash` | `yes`: while due, the companion hangs on a leash from the box (`╮` and `╰`) | `yes` |
 | `overdue` | next to Bytek when overdue, `\|`-separated steps | `(•ᴥ•)?\|(•ᴥ•)` |
 | `overdue_text` | replaces the reminder's text when overdue | `waiting by the door` |
+| `heads_up_named` | replaces the heads-up text when the companion has a name (`bytek name`); `{name}`, `{routine}`, `{in}` (the time to go) | `{name}'s {routine} in {in}` |
+| `due_named` | replaces the due text when the companion has a name | `{name}, {routine} time!` |
+| `overdue_named` | replaces the overdue text when the companion has a name | `{name} is waiting by the door` |
 
 The companion stands at the start of the detail row, Claude's detail after it; the reminder's text stays first in the status row. Steps of different widths are padded to the widest, so what follows doesn't move. A narrow terminal cuts Claude's detail, never the companion.
+
+## Companion names: `$BYTEK_HOME/config/companions`
+
+Written by `bytek name dog Rex` (or by hand); example in `examples/companions.example`. One `companion = Name` per line; lines starting with `#` are comments. The companion must be one in `companions/`; the name is cut to 20 characters, control characters dropped, and can't contain `=`. A companion with a name uses its `*_named` texts; without one, or when the file doesn't have them, the plain texts. Every routine with that `icon` gets the same name. `bytek doctor` names lines it can't use.
 
 ## Files in `$BYTEK_HOME`
 
@@ -122,5 +129,5 @@ The companion stands at the start of the detail row, Claude's detail after it; t
 | `config/antenna-reminders-off` | the user | while it exists, hooks print no antenna reminder (`docs/mood-antenna.md`) |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
-| `config/` | the user | personal settings: `routines` (above), and later others (places); each feature documents its file here |
+| `config/` | the user, `bytek name` | personal settings: `routines` and `companions` (above), and later others (places); each feature documents its file here |
 | `cache/` | providers | cache files from background providers; none yet (`bounded-contexts.md`) |
