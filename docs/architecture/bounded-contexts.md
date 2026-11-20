@@ -26,7 +26,7 @@ Each part of Bytek owns its data and talks to the others only through a file wit
 
 **Owns:** Bytek's place in `~/.claude/settings.json` (`statusLine`, and Bytek's hooks for installs without the plugin), the backups, and the status line Bytek replaced.
 **Code:** `lib/settings.sh`, `lib/setup.jq`, `lib/uninstall.jq`, `lib/original-statusline.jq`.
-**Contract:** touches nothing in `settings.json` but its own entries; backs the file up first; never prints it (it can hold secrets). Why Bytek edits the file at all: `docs/adr/0005-bytek-edits-settings-json.md`.
+**Contract:** touches nothing in `settings.json` but its own entries (the status line, its hooks, one permission rule for `bytek addon`); backs the file up first; never prints it (it can hold secrets). Why Bytek edits the file at all, and what it may touch: `docs/adr/0010-bytek-edits-settings-json.md`.
 
 ## Providers (planned)
 

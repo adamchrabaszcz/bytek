@@ -1,6 +1,6 @@
 # Makes Bytek the status line (keeping padding) and, with $with_hooks, adds its hooks to
 # every event next to the user's own, replacing any earlier Bytek hooks.
-# Input: settings.json. Args: $render, $hook (commands), $with_hooks (bool),
+# Input: settings.json. Args: $render, $hook (commands), $with_hooks (bool), $antenna_rule,
 # $plugin (hooks/hooks.json, slurped), $bytek_re (matches a command that runs Bytek).
 
 def runs_bytek: (.command // "") | test($bytek_re);
@@ -18,3 +18,6 @@ def without_bytek:
     | .hooks = reduce ($ours | to_entries[]) as $e (.hooks // {};
         .[$e.key] = ((.[$e.key] // []) | without_bytek) + $e.value)
   else . end
+# Claude may set the mood antenna without a permission prompt each time: $antenna_rule, once,
+# next to the user's own rules.
+| .permissions.allow = ((.permissions.allow // []) | if any(. == $antenna_rule) then . else . + [$antenna_rule] end)

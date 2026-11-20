@@ -30,7 +30,7 @@ Needs bash (the macOS default 3.2 is fine) and [jq](https://jqlang.org) for setu
 /bytek setup
 ```
 
-`/bytek setup` makes Bytek your status line: it backs up `~/.claude/settings.json` to `~/.claude/bytek/backup/`, remembers any status line you had, and sets a one-second refresh so Bytek can animate. The plugin brings its own hooks, so Bytek follows what Claude is doing from the next prompt.
+`/bytek setup` makes Bytek your status line: it backs up `~/.claude/settings.json` to `~/.claude/bytek/backup/`, remembers any status line you had, sets a one-second refresh so Bytek can animate, and lets Claude change the mood antenna without asking each time (one permission rule for `bytek addon`, removed again on uninstall). The plugin brings its own hooks, so Bytek follows what Claude is doing from the next prompt.
 
 **Without the plugin system:**
 

@@ -1,6 +1,6 @@
 # 0005. Bytek edits settings.json itself
 
-- Status: Accepted
+- Status: Superseded by 0010
 - Date: 2026-11-20 (recording a decision from the start of the project)
 
 ## Context

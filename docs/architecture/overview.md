@@ -8,7 +8,7 @@ Claude Code ──hook JSON──▶ bytek hook ──▶ state file ($BYTEK_HOM
 Claude Code ◀──4 lines── bytek render ◀──────────┘  + face file (faces/<state>)
 ```
 
-Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` bash, `0004` bash 3.2, `0005` editing settings.json, `0006` jq).
+Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` bash, `0004` bash 3.2, `0010` editing settings.json, `0006` jq).
 
 ## Modules
 

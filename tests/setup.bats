@@ -197,3 +197,19 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
   assert_failure 1
   assert_output --partial "bytek setup"
 }
+
+@test "setup lets Claude set the antenna without a prompt, once, next to the user's own rules" {
+  jq '.permissions = {"allow": ["Bash(npm test)"], "deny": ["Bash(rm *)"]}' "$BYTEK_SETTINGS" >"$TMP/s" && mv "$TMP/s" "$BYTEK_SETTINGS"
+  "$BYTEK" setup >/dev/null
+  "$BYTEK" setup >/dev/null
+  assert_equal "$(jq -c .permissions "$BYTEK_SETTINGS")" \
+    '{"allow":["Bash(npm test)","Bash(~/.claude/bytek/current/bin/bytek addon *)"],"deny":["Bash(rm *)"]}'
+}
+
+@test "uninstall removes only Bytek's permission rule" {
+  jq '.permissions = {"allow": ["Bash(npm test)"]}' "$BYTEK_SETTINGS" >"$TMP/s" && mv "$TMP/s" "$BYTEK_SETTINGS"
+  cp "$BYTEK_SETTINGS" "$TMP/with-rules.json"
+  "$BYTEK" setup >/dev/null
+  "$BYTEK" uninstall >/dev/null
+  assert_settings_equal "$TMP/with-rules.json"
+}
