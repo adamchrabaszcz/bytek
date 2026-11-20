@@ -10,6 +10,9 @@
 *.local
 *.local.*
 
+# Working notes and plans (people and agents keep them next to the code, never commit them)
+/.plan/
+
 # OS / editor
 .DS_Store
 .idea/
