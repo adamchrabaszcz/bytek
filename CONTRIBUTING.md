@@ -77,7 +77,7 @@ fix(core): keep the antenna in column 5 after a thought bubble
 docs: how to write a companion file
 ```
 
-Breaking changes (e.g. a change to the data file or state file format) get a `!` after the type and a `BREAKING CHANGE:` footer explaining what existing files need.
+Breaking changes (e.g. a change to the data file or state file format) get a `!` after the type and a `BREAKING CHANGE:` footer explaining what existing files need. A format change also bumps that format's version and keeps reading the older one (`docs/architecture/data-files.md`, "Format versions").
 
 ## Planned work: GitHub issues
 

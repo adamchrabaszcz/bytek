@@ -55,7 +55,7 @@ settings_setup() {
 
   printf 'Bytek is your status line now.\n'
   printf '  settings backup: %s\n' "$backup"
-  if [ "$(cat "$original")" != null ]; then
+  if jq -f "$BYTEK_ROOT/lib/saved-statusline.jq" "$original" | jq -e '.statusLine != null' >/dev/null 2>&1; then
     printf '  your previous status line is saved in %s and comes back with: bytek uninstall\n' "$original"
   fi
   $with_hooks && printf '  hooks added to %s\n' "$BYTEK_SETTINGS"
@@ -64,13 +64,17 @@ settings_setup() {
 
 # bytek uninstall: puts back the status line Bytek replaced and removes Bytek's hooks.
 settings_uninstall() {
-  local original="$BYTEK_HOME/original-statusline.json" saved=null backup
+  local original="$BYTEK_HOME/original-statusline.json" saved=null known=true info backup
   command -v jq >/dev/null 2>&1 || die "uninstall needs jq (https://jqlang.org)"
   [ -f "$BYTEK_SETTINGS" ] || {
     echo "Nothing to do: no $BYTEK_SETTINGS"
     return 0
   }
-  [ -s "$original" ] && saved=$(cat "$original")
+  if [ -s "$original" ]; then
+    info=$(jq -c -f "$BYTEK_ROOT/lib/saved-statusline.jq" "$original") || die "cannot read $original"
+    known=$(printf '%s' "$info" | jq -r .known)
+    saved=$(printf '%s' "$info" | jq -c .statusLine)
+  fi
   mkdir -p "$BYTEK_HOME/backup"
   clock_stamp
   backup="$BYTEK_HOME/backup/settings.json.$REPLY.before-uninstall"
@@ -78,7 +82,12 @@ settings_uninstall() {
 
   settings_edit uninstall.jq --argjson saved "$saved" ||
     die "could not update $BYTEK_SETTINGS (unchanged; backup in $backup)"
-  rm -f "$original" "$BYTEK_HOME/current"
+  rm -f "$BYTEK_HOME/current"
+  if [ "$known" = true ]; then
+    rm -f "$original"
+  else
+    printf 'Kept %s: a newer Bytek saved it, in a format this version can'"'"'t read.\n' "$original"
+  fi
   printf 'Bytek is off. Settings backup: %s\n' "$backup"
   printf 'Your config and state stay in %s (delete it to remove everything).\n' "$BYTEK_HOME"
 }

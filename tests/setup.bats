@@ -34,7 +34,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
   assert_equal "$(q .statusLine.padding)" 2
   assert_equal "$(q .theme)" dark
   assert_equal "$(q '.hooks.PreToolUse | length')" 1 # plugin mode adds no hooks
-  assert_equal "$(jq -r .command "$BYTEK_HOME/original-statusline.json")" "~/bin/my-status"
+  assert_equal "$(jq -c '[.format, .statusLine.command]' "$BYTEK_HOME/original-statusline.json")" '[1,"~/bin/my-status"]'
   ls "$BYTEK_HOME"/backup/settings.json.* >/dev/null
   assert_equal "$(resolve "$BYTEK_HOME/current")" "$ROOT"
 }
@@ -42,7 +42,7 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
 @test "setup twice keeps the saved original, never Bytek's own" {
   "$BYTEK" setup >/dev/null
   "$BYTEK" setup >/dev/null
-  assert_equal "$(jq -r .command "$BYTEK_HOME/original-statusline.json")" "~/bin/my-status"
+  assert_equal "$(jq -c '[.format, .statusLine.command]' "$BYTEK_HOME/original-statusline.json")" '[1,"~/bin/my-status"]'
 }
 
 @test "setup --hooks adds Bytek to every event once, next to the user's hook" {
@@ -65,6 +65,25 @@ events() { jq -r '.hooks | keys | length' "$ROOT/hooks/hooks.json"; }
   assert_success
   assert_settings_equal "$TMP/initial.json"
   [ ! -e "$BYTEK_HOME/current" ] || fail "current link left behind"
+}
+
+@test "uninstall reads a status line saved before formats existed" {
+  "$BYTEK" setup >/dev/null
+  jq -c .statusLine "$BYTEK_HOME/original-statusline.json" >"$TMP/old.json"
+  cp "$TMP/old.json" "$BYTEK_HOME/original-statusline.json" # the unwrapped way older versions saved it
+  run "$BYTEK" uninstall
+  assert_success
+  assert_settings_equal "$TMP/initial.json"
+}
+
+@test "uninstall leaves a status line saved in a newer format alone" {
+  "$BYTEK" setup >/dev/null
+  printf '{"format":2,"lines":["~/bin/my-status"]}\n' >"$BYTEK_HOME/original-statusline.json"
+  run "$BYTEK" uninstall
+  assert_success
+  assert_output --partial "a newer Bytek saved it"
+  assert_equal "$(q .statusLine)" null # Bytek's own is gone; nothing misread is put back
+  assert_equal "$(jq -c . "$BYTEK_HOME/original-statusline.json")" '{"format":2,"lines":["~/bin/my-status"]}'
 }
 
 @test "without an earlier status line, uninstall removes it again" {

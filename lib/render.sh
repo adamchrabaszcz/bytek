@@ -7,6 +7,7 @@
 RENDER_ANTENNA="♡"
 RENDER_SPINNER="◜|◝|◞|◟"
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
+RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
 
 # Splits a "a|b|c" frame list and sets REPLY to the element for tick $2.
 # Leading spaces inside a frame are kept (used for bouncing marks).
@@ -24,9 +25,10 @@ render_pick() {
   REPLY=${frames[$(($2 % n))]}
 }
 
-# Reads "key: value" lines from face file $1 into F_frames, F_thought, F_status, F_detail.
+# Reads "key: value" lines from face file $1 into F_frames, F_thought, F_status, F_detail and
+# F_format (empty when the file declares none, which means format 1).
 render_face() {
-  F_frames="" F_thought="" F_status="" F_detail=""
+  F_frames="" F_thought="" F_status="" F_detail="" F_format=""
   local line key val
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in '' | '#'*) continue ;; esac
@@ -34,7 +36,7 @@ render_face() {
     val=${line#*:}
     val=${val# }
     case "$key" in
-      frames | thought | status | detail) printf -v "F_$key" '%s' "$val" ;;
+      frames | thought | status | detail | format) printf -v "F_$key" '%s' "$val" ;;
     esac
   done <"$1"
 }
@@ -94,6 +96,10 @@ render_line() {
   face="$BYTEK_ROOT/faces/$S_state"
   [ -f "$face" ] || face="$BYTEK_ROOT/faces/idle"
   render_face "$face"
+  # A face file in a newer format than this Bytek knows isn't misread: show idle instead.
+  if ! [[ "${F_format:-1}" =~ ^[0-9]+$ ]] || [ "${F_format:-1}" -gt "$RENDER_FACE_FORMAT" ]; then
+    render_face "$BYTEK_ROOT/faces/idle"
+  fi
 
   render_pick "$F_frames" "$tick"
   local frame=$REPLY

@@ -1,12 +1,22 @@
 # Data files
 
-Every file Bytek reads or writes, field by field. Changing a format users already have (state, config, data files) is a breaking change: it gets a `!` in its commit type and a `BREAKING CHANGE:` footer (CONTRIBUTING, "Commits").
+Every file Bytek reads or writes, field by field. `$BYTEK_HOME` is `~/.claude/bytek` unless set.
 
-`$BYTEK_HOME` is `~/.claude/bytek` unless set.
+## Format versions
+
+Files that outlive a Bytek version carry a format version, so a newer Bytek can recognise an older file and an older Bytek doesn't misread a newer one (`docs/adr/0008-versioned-file-formats.md`):
+
+| File | Current format | Without a version | Newer than this Bytek knows |
+| --- | --- | --- | --- |
+| state file | `format=1`, its first line | format 1 | loads as idle; hooks leave the file alone |
+| face file | `format: 1`, optional | format 1 | the idle face is shown instead |
+| saved status line | `{"format": 1, "statusLine": ...}` | the status line itself (saved before formats existed) | uninstall puts nothing back and keeps the file |
+
+Changing a format means a new version number, and reading the older one (a migration) for as long as such files can still exist. Removing a field, or giving one a new meaning, is a breaking change: a `!` in its commit type and a `BREAKING CHANGE:` footer (CONTRIBUTING, "Commits"). Adding a field older versions can ignore needs neither.
 
 ## State file: `$BYTEK_HOME/state/<session>`
 
-One per Claude Code session (`<session>` is the session id: letters, digits, `_`, `-`); `default` is used when a session has none yet. Written by hooks and `bytek set`, read by the status line. Plain text, one `key=value` per line, in this order:
+One per Claude Code session (`<session>` is the session id: letters, digits, `_`, `-`); `default` is used when a session has none yet. Written by hooks and `bytek set`, read by the status line. Plain text, one `key=value` per line: first `format=1`, then in this order:
 
 | Key | Meaning | Example |
 | --- | --- | --- |
@@ -17,9 +27,12 @@ One per Claude Code session (`<session>` is the session id: letters, digits, `_`
 | `progress` | `N/M` for `{progress}`; empty shows a sweeping cell | `3/5` |
 | `since` | when the state last changed, seconds since 1970 | `1763635200` |
 | `turn_start` | when the prompt was sent, for the turn's duration | `1763635100` |
+
 Values are one line: line breaks and tabs become spaces and control characters are removed when the file is written. Unknown keys are ignored when it is read (older versions also kept `edits` and `files` here), and a missing file reads as `idle`. Files untouched for 7 days are removed at the next session start; a session's file is removed when it ends.
 
 The file is written whole (temp file and rename) and never locked: when hooks run at the same moment, the last one's state wins (`docs/adr/0007-no-lock-append-edits.md`).
+
+An `idle` or `done` state older than `BYTEK_SLEEP_AFTER` seconds (default 600) is shown as `sleeping`.
 
 ## Edit list: `$BYTEK_HOME/state/<session>.edits`
 
@@ -31,7 +44,7 @@ src/app.ts
 src/api.ts
 ```
 
-An `idle` or `done` state older than `BYTEK_SLEEP_AFTER` seconds (default 600) is shown as `sleeping`.
+It has no version line, which would break the atomic one-line appends; it lives for one turn only. If its format ever changes, it gets a new file name instead.
 
 ## Face file: `faces/<state>`
 
@@ -39,6 +52,7 @@ One per state, in the repository; the file name is the state's name (`bytek stat
 
 | Key | Meaning | Example |
 | --- | --- | --- |
+| `format` | the file's format version; optional, missing means 1 | `1` |
 | `frames` | the 3-character face, one per animation step, `\|`-separated | `≧ᴗ≦\|≦ᴗ≧` |
 | `thought` | what floats next to the antenna, `\|`-separated steps; optional | `✎` |
 | `status` | the main text, right of the face | `editing` |
@@ -52,7 +66,7 @@ In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the 
 | --- | --- | --- |
 | `current` | setup, hooks | link to the installed copy; the status line command runs `current/bin/bytek` |
 | `backup/settings.json.<stamp>` | setup | `settings.json` before setup changed it (`.before-uninstall` for uninstall) |
-| `original-statusline.json` | setup | the status line Bytek replaced, as JSON (`null` if none); uninstall puts it back and removes the file |
+| `original-statusline.json` | setup | the status line Bytek replaced: `{"format": 1, "statusLine": ...}`, the status line `null` if there was none; uninstall puts it back and removes the file |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
 | `config/` | the user | personal settings for features that need them (routines, places); nothing reads it yet; each feature documents its file here |

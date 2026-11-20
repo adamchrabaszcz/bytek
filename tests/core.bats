@@ -70,6 +70,34 @@ assert_aligned() {
   assert_output --partial "▱▱▰▱▱"
 }
 
+@test "a state from a newer Bytek shows as idle" {
+  mkdir -p "$BYTEK_HOME/state"
+  printf 'format=2\nstate=editing\n' >"$BYTEK_HOME/state/default"
+  run render
+  assert_output --partial "$(sed -n 's/^status: //p' "$ROOT/faces/idle")"
+}
+
+@test "a face file in a newer format shows the idle face instead" {
+  local data="$TMP/data"
+  mkdir -p "$data"
+  cp -R "$ROOT/faces" "$data/faces"
+  printf 'format: 2\nframes: ◕‿◕\nstatus: from the future\n' >"$data/faces/future"
+  BYTEK_ROOT=$data "$BYTEK" set future
+  BYTEK_ROOT=$data run render
+  refute_output --partial "from the future"
+  assert_output --partial "$(sed -n 's/^status: //p' "$ROOT/faces/idle")"
+}
+
+@test "a face file may declare format 1" {
+  local data="$TMP/data"
+  mkdir -p "$data"
+  cp -R "$ROOT/faces" "$data/faces"
+  printf 'format: 1\nframes: •ᴗ•\nstatus: declared\n' >"$data/faces/declared"
+  BYTEK_ROOT=$data "$BYTEK" set declared
+  BYTEK_ROOT=$data run render
+  assert_output --partial "declared"
+}
+
 @test "no line starts with whitespace, so trimming each line keeps the antenna above its stick" {
   # Claude Code trims the leading whitespace of each status line row (#83).
   local line trimmed=""

@@ -23,7 +23,7 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/hooks.sh` | turns hook events into states; the debug log; following plugin updates | clock, state |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
 
-The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq` and `original-statusline.jq` to settings.
+The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq`, `original-statusline.jq` and `saved-statusline.jq` to settings.
 
 ## What each command loads
 

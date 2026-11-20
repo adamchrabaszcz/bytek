@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2034 # S_<key> and STATE_EDITS/STATE_FILES are this module's output, read by render, hooks and bin/bytek
+# shellcheck disable=SC2034 # S_<key>, STATE_NEWER and STATE_EDITS/STATE_FILES are this module's output, read by render, hooks and bin/bytek
 # state: what Bytek is doing, one file per session in $BYTEK_HOME/state/. Hooks write it,
 # the status line reads it.
 # Needs: nothing.
@@ -12,35 +12,48 @@
 # State file fields (one "key=value" per line), loaded into S_<key>:
 #   state, arg (fills {arg}), status / detail (override the face's text),
 #   progress (N/M), since (last event), turn_start.
+# The first line is the file's format version (docs/architecture/data-files.md).
 STATE_KEYS="state arg status detail progress since turn_start"
+STATE_FORMAT=1
 
 # Loads state file $1 into S_<key>; a missing file gives an idle state. Keys it doesn't know
-# (such as edits and files, which older versions kept here) are ignored.
+# (such as edits and files, which older versions kept here) are ignored. No format line means
+# format 1. A newer format than this Bytek knows (written by a newer version) isn't misread:
+# it loads as idle and STATE_NEWER is set, so the caller leaves the file alone.
 state_load() {
+  local line key val format=1
   S_state="idle" S_arg="" S_status="" S_detail="" S_progress="" S_since="" S_turn_start=""
+  STATE_NEWER=""
   [ -f "$1" ] || return 0
-  local line key val
   while IFS= read -r line || [ -n "$line" ]; do
     key=${line%%=*}
     val=${line#*=}
+    [ "$key" = format ] && format=$val
     case " $STATE_KEYS " in
       *" $key "*) printf -v "S_$key" '%s' "$val" ;;
     esac
   done <"$1"
+  if ! [[ "$format" =~ ^[0-9]+$ ]] || [ "$format" -gt "$STATE_FORMAT" ]; then
+    S_state="idle" S_arg="" S_status="" S_detail="" S_progress="" S_since="" S_turn_start=""
+    STATE_NEWER=1
+  fi
 }
 
-# Writes all S_<key> fields to $1 atomically (temp file + rename). Control characters are
-# removed here too (bytek set takes text from the command line), so no value can carry
-# terminal escape sequences into the status line.
+# Writes all S_<key> fields to $1 atomically (temp file + rename), after the format line.
+# Control characters are removed here too (bytek set takes text from the command line), so no
+# value can carry terminal escape sequences into the status line.
 state_write() {
   local dir=${1%/*} tmp key val
   mkdir -p "$dir" || return 1
   tmp=$(mktemp "$dir/.tmp.XXXXXX") || return 1
-  for key in $STATE_KEYS; do
-    eval "val=\$S_$key"
-    val=${val//[$'\n\t']/ }
-    printf '%s=%s\n' "$key" "${val//[[:cntrl:]]/}"
-  done >"$tmp" && mv "$tmp" "$1"
+  {
+    printf 'format=%s\n' "$STATE_FORMAT"
+    for key in $STATE_KEYS; do
+      eval "val=\$S_$key"
+      val=${val//[$'\n\t']/ }
+      printf '%s=%s\n' "$key" "${val//[[:cntrl:]]/}"
+    done
+  } >"$tmp" && mv "$tmp" "$1"
 }
 
 # Appends file $2 to the edit list of state file $1, one line per edit. A short append is

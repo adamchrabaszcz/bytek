@@ -134,3 +134,10 @@ ev() {
   BYTEK_NOW=1005 hook '{"hook_event_name":"Stop","session_id":"s1"}'
   assert_state s1 arg "30 changes · 5s"
 }
+
+@test "a hook leaves a state file from a newer Bytek alone" {
+  mkdir -p "$BYTEK_HOME/state"
+  printf 'format=2\nmood=curious\n' >"$BYTEK_HOME/state/s1"
+  ev 1000 '"hook_event_name":"UserPromptSubmit","prompt":"hi"'
+  assert_equal "$(cat "$BYTEK_HOME/state/s1")" $'format=2\nmood=curious'
+}
