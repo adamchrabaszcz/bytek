@@ -2,7 +2,7 @@
 # The render path stays inside its time budget: the status line redraws every second, so one
 # render must take well under BYTEK_RENDER_BUDGET_MS (default 50 ms) on average. Renders every
 # state, with a long text that gets cut, through the real bin/bytek.
-# BYTEK_SKIP_SPEED=1 skips it (e.g. under bashcov, whose tracing slows everything down).
+# Skipped under coverage (BYTEK_COVERAGE=1): bashcov's tracing slows everything down.
 
 load helpers
 
@@ -21,7 +21,7 @@ render_all() {
 }
 
 @test "a render takes less than the budget on average" {
-  [ "${BYTEK_SKIP_SPEED:-}" = 1 ] && skip "render budget not checked (BYTEK_SKIP_SPEED=1)"
+  [ "${BYTEK_COVERAGE:-}" = 1 ] && skip "render budget not checked under coverage"
   local budget=${BYTEK_RENDER_BUDGET_MS:-50} seconds avg TIMEFORMAT=%3R
   # bash's own `time` gives milliseconds on bash 3.2 too, without extra tools.
   seconds=$({ time render_all "${BYTEK_SPEED_ROUNDS:-10}"; } 2>&1)
