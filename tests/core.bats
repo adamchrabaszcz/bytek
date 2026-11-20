@@ -102,7 +102,7 @@ assert_aligned() {
   # Claude Code trims the leading whitespace of each status line row (#83).
   local line trimmed=""
   "$BYTEK" set thinking
-  run render
+  BYTEK_NOW=1000 run render # a fixed tick: the default heart alternates ♡ and ♥
   while IFS= read -r line; do
     [[ "$line" != [[:space:]]* ]] || fail "a line starts with whitespace: '$line'"
     # What Claude Code shows: each line trimmed, the invisible reset removed.
@@ -112,4 +112,21 @@ assert_aligned() {
   run printf '%s' "$trimmed"
   assert_line --index 0 --partial "    ♡"
   assert_line --index 1 " ╭──┴──╮"
+}
+
+@test "every mood antenna add-on renders aligned, on the stick, in every frame" {
+  local addon name frames t out first
+  "$BYTEK" set thinking
+  for addon in "$ROOT"/addons/*; do
+    name=${addon##*/}
+    printf '%s\n' "$name" >"$BYTEK_HOME/addon"
+    frames=$(sed -n 's/^frames: //p' "$addon")
+    for t in 0 1 2 3; do
+      out=$(printf '{"session_id":"none"}' | BYTEK_NOW=$((1000 + t)) "$BYTEK" render)
+      assert_aligned "$out" "$name@$t"
+      first=${out%%$'\n'*}
+      first=${first#$'\033[0m'}
+      case "|$frames|" in *"|${first:4:1}|"*) ;; *) fail "$name@$t: '${first:4:1}' isn't one of its frames '$frames'" ;; esac
+    done
+  done
 }

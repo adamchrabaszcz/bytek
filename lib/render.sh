@@ -2,9 +2,8 @@
 # shellcheck disable=SC2154 # S_<key> comes from lib/state.sh (state_load)
 # render: draws the status line from a session's state and its face file. This is the render
 # path: local files only, no jq, as few subprocesses as possible (50 ms budget).
-# Needs: clock, state; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
+# Needs: clock, state, addon; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
-RENDER_ANTENNA="♡"
 RENDER_SPINNER="◜|◝|◞|◟"
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
@@ -130,7 +129,10 @@ render_line() {
   # Claude Code trims the leading whitespace of each line, which would take the antenna's indent
   # and shift the lines against each other: an invisible colour reset first keeps every line as
   # it is, so the antenna stays above its stick.
-  printf '\033[0m    %s%s\n' "$RENDER_ANTENNA" "${thought:+ $thought}"
+  # The mood antenna (lib/addon.sh) sits on the stick, animated by the same tick.
+  addon_load
+  render_pick "$ADDON_FRAMES" "$tick"
+  printf '\033[0m    %s%s\n' "$REPLY" "${thought:+ $thought}"
   printf '\033[0m ╭──┴──╮\n'
   printf '\033[0m │ %s │  %s\n' "$frame" "$status"
   printf '\033[0m ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"

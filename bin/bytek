@@ -7,6 +7,7 @@
 #        --progress N/M   progress for states that show a bar
 #        --session ID     session to write (default: "default")
 #   bytek states                     list available states
+#   bytek addon [name]               set the mood antenna; without a name, list them
 #   bytek hook                       Claude Code hook entry point (hook JSON on stdin)
 #   bytek setup [--hooks]            make Bytek the status line (backs up settings.json);
 #                                    --hooks also adds the hooks (installs without the plugin)
@@ -93,7 +94,7 @@ cmd_states() {
   for f in "$BYTEK_ROOT"/faces/*; do printf '%s\n' "${f##*/}"; done
 }
 
-usage() { sed -n '2,16s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,17s/^# \{0,1\}//p' "$0"; }
 
 case "${1:-}" in
   render)
@@ -101,9 +102,17 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/state.sh
     . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/addon.sh
+    . "$BYTEK_LIB/addon.sh"
     # shellcheck source=lib/render.sh
     . "$BYTEK_LIB/render.sh"
     cmd_render
+    ;;
+  addon)
+    shift
+    # shellcheck source=lib/addon.sh
+    . "$BYTEK_LIB/addon.sh"
+    addon_set "$1"
     ;;
   set)
     shift

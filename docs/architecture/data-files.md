@@ -10,6 +10,7 @@ Files that outlive a Bytek version carry a format version, so a newer Bytek can 
 | --- | --- | --- | --- |
 | state file | `format=1`, its first line | format 1 | loads as idle; hooks leave the file alone |
 | face file | `format: 1`, optional | format 1 | the idle face is shown instead |
+| add-on file | `format: 1`, optional | format 1 | the plain heart is shown instead |
 | saved status line | `{"format": 1, "statusLine": ...}` | the status line itself (saved before formats existed) | uninstall puts nothing back and keeps the file |
 
 Changing a format means a new version number, and reading the older one (a migration) for as long as such files can still exist. Removing a field, or giving one a new meaning, is a breaking change: a `!` in its commit type and a `BREAKING CHANGE:` footer (CONTRIBUTING, "Commits"). Adding a field older versions can ignore needs neither.
@@ -60,6 +61,18 @@ One per state, in the repository; the file name is the state's name (`bytek stat
 
 In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the progress bar. Animation steps change once a second (the tick is the current second). Frames must be exactly 3 single-width characters; the alignment test renders every face in every frame (CONTRIBUTING, "Art rules").
 
+## Add-on file: `addons/<name>`
+
+One per mood antenna add-on, in the repository; the file name is the add-on's name (`bytek addon` lists them, `docs/mood-antenna.md` shows them all). Plain text, `key: value` lines; lines starting with `#` are comments.
+
+| Key | Meaning | Example |
+| --- | --- | --- |
+| `format` | the file's format version; optional, missing means 1 | `1` |
+| `frames` | what sits on the antenna stick, one single-width character per animation step, `\|`-separated | `♡\|♥` |
+| `meaning` | the vibe it shows, for the list and for Claude | `warm, things are going well` |
+
+The current add-on is named in `$BYTEK_HOME/addon` (below); without it, or when it names no add-on, the antenna shows `heart`.
+
 ## Files in `$BYTEK_HOME`
 
 | Path | Written by | What |
@@ -67,6 +80,7 @@ In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the 
 | `current` | setup, hooks | link to the installed copy; the status line command runs `current/bin/bytek` |
 | `backup/settings.json.<stamp>` | setup | `settings.json` before setup changed it (`.before-uninstall` for uninstall) |
 | `original-statusline.json` | setup | the status line Bytek replaced: `{"format": 1, "statusLine": ...}`, the status line `null` if there was none; uninstall puts it back and removes the file |
+| `addon` | `bytek addon` | the current mood antenna's name, one line (`star`); only letters and `-` count. No version line: a different format would get a new file name |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
 | `config/` | the user | personal settings for features that need them (routines, places); nothing reads it yet; each feature documents its file here |
