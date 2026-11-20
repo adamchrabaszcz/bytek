@@ -98,13 +98,15 @@ routines_schedule() {
 }
 
 # Reads the routines config into ROUTINES_NAME, ROUTINES_KIND, ROUTINES_DAYS, ROUTINES_TIMES,
-# ROUTINES_MONTHS ("from-to" or empty) and ROUTINES_OPTIONS (the other options, for the later
-# steps), ROUTINES_COUNT routines in all. Lines it can't read are skipped and listed in
-# ROUTINES_ERRORS ("line 3: reason"), so one broken line never breaks the status line. A
-# routine with the option "disable" is left out.
+# ROUTINES_MONTHS ("from-to" or empty), ROUTINES_HEADS and ROUTINES_LATE (the heads_up and
+# overdue options in seconds, read once here rather than on every render) and ROUTINES_OPTIONS
+# (the options as written, for the later steps), ROUTINES_COUNT routines in all. Lines it can't
+# read are skipped and listed in ROUTINES_ERRORS ("line 3: reason"), so one broken line never
+# breaks the status line. A routine with the option "disable" is left out.
 routines_load() {
-  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled
+  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled heads late
   ROUTINES_NAME=() ROUTINES_KIND=() ROUTINES_DAYS=() ROUTINES_TIMES=() ROUTINES_MONTHS=() ROUTINES_OPTIONS=()
+  ROUTINES_HEADS=() ROUTINES_LATE=()
   ROUTINES_COUNT=0 ROUTINES_ERRORS=""
   [ -f "$file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
@@ -137,12 +139,20 @@ routines_load() {
       ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: $REPLY"$'\n'
       continue
     fi
-    months="" disabled="" options=""
+    months="" disabled="" options="" heads=0 late=$ROUTINES_OVERDUE
     for field in "${fields[@]:1}"; do
       routines_trim "$field"
       option=$REPLY
       case "$option" in
         disable) disabled=1 ;;
+        heads_up\ * | overdue\ *)
+          routines_seconds "${option#* }" || {
+            ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: ${option%% *} needs a time like 10m, 2h or 1d"$'\n'
+            continue 2
+          }
+          if [ "${option%% *}" = heads_up ]; then heads=$REPLY; else late=$REPLY; fi
+          options="$options|$option"
+          ;;
         months\ *)
           months=${option#months }
           months=${months// /}
@@ -163,6 +173,8 @@ routines_load() {
     ROUTINES_TIMES[ROUTINES_COUNT]=$ROUTINE_TIMES
     ROUTINES_MONTHS[ROUTINES_COUNT]=$months
     ROUTINES_OPTIONS[ROUTINES_COUNT]=${options#|}
+    ROUTINES_HEADS[ROUTINES_COUNT]=$heads
+    ROUTINES_LATE[ROUTINES_COUNT]=$late
     ROUTINES_COUNT=$((ROUTINES_COUNT + 1))
   done <"$file"
 }
@@ -258,22 +270,6 @@ routines_seconds() {
   esac
 }
 
-# Sets REPLY to the value of option $2 of routine $1 ("heads_up 10m" → "10m"); returns 1 when
-# the routine doesn't have it.
-routines_option() {
-  local option options
-  IFS='|' read -r -a options <<<"${ROUTINES_OPTIONS[$1]}"
-  for option in "${options[@]}"; do
-    case "$option" in "$2 "*)
-      REPLY=${option#"$2 "}
-      return 0
-      ;;
-    esac
-  done
-  REPLY=""
-  return 1
-}
-
 # Sets REPLY to $1 seconds, rounded up to minutes, as "8m", "1h 30m", "2h" or "1d 3h".
 routines_until() {
   local m=$((($1 + 59) / 60))
@@ -293,27 +289,26 @@ routines_until() {
 # overdue) and ROUTINES_MORE (how many other routines are in a stage too). Overdue beats due beats
 # a heads-up; among equals, the one that starts first. All empty (ROUTINES_MORE 0) when none is.
 # A heads-up needs the routine's heads_up option; overdue lasts ROUTINES_OVERDUE, or its own
-# overdue option. An occurrence that ended before today's midnight isn't seen as overdue.
+# overdue option. A time is due for its whole minute (12:30:00 to 12:30:59), a window through
+# its last minute; "ago" counts full minutes from its end. An occurrence that ended before
+# today's midnight isn't seen as overdue.
 routines_reminder() {
   local i now=$CLOCK_EPOCH start end heads late rank stage best=0 first=0 count=0 name text minute
   ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0
   for ((i = 0; i < ROUTINES_COUNT; i++)); do
-    late=$ROUTINES_OVERDUE
-    routines_option "$i" overdue && routines_seconds "$REPLY" && late=$REPLY
+    heads=${ROUTINES_HEADS[i]} late=${ROUTINES_LATE[i]}
     # From now minus the overdue time, so an occurrence that has just passed is still found.
     CLOCK_EPOCH=$((now - late))
     routines_next "$i"
     CLOCK_EPOCH=$now
     [ -n "$REPLY" ] || continue
     start=${REPLY% *} end=${REPLY#* }
-    heads=0
-    routines_option "$i" heads_up && routines_seconds "$REPLY" && heads=$REPLY
     # Without a heads_up option, start - heads is the start itself: no heads-up stage.
     if [ "$now" -lt $((start - heads)) ]; then
       continue
     elif [ "$now" -lt "$start" ]; then
       rank=1 stage=heads_up
-    elif [ "$now" -le "$end" ]; then
+    elif [ "$now" -lt $((end + 60)) ]; then
       rank=2 stage=due
     else
       rank=3 stage=overdue
@@ -335,7 +330,7 @@ routines_reminder() {
         fi
         ;;
       overdue)
-        routines_until $((now - end))
+        routines_until $(((now - end) / 60 * 60)) # full minutes: 12:31:30 is "1m ago"
         text="$name $REPLY ago"
         ;;
     esac

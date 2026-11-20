@@ -12,10 +12,12 @@ setup() {
   load_module clock routines
 }
 
-# Prints seconds since 1970 for "YYYY-MM-DD HH:MM" in UTC (GNU date, or macOS's, which fills
-# in the current seconds unless they're given).
+# Prints seconds since 1970 for "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS" in UTC (GNU date, or
+# macOS's, which fills in the current seconds unless they're given).
 at() {
-  date -u -d "$1" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$1:00" +%s
+  local t=$1
+  [[ "$t" =~ :[0-9]{2}:[0-9]{2}$ ]] || t="$t:00"
+  date -u -d "$t" +%s 2>/dev/null || date -u -j -f '%Y-%m-%d %H:%M:%S' "$t" +%s
 }
 
 # Loads config lines $@ (one routine per argument).
@@ -163,4 +165,29 @@ assert_reminder() {
   config "invoice = monthly last-workday 10:00 | heads_up 2d"
   assert_reminder "2025-11-27 08:30" heads_up "invoice in 1d 1h"
   assert_reminder "2025-11-28 08:30" heads_up "invoice in 1h 30m"
+}
+
+@test "a time is due for its whole minute, then overdue in full minutes" {
+  config "lunch = daily 12:30 | heads_up 10m"
+  assert_reminder "2025-11-30 12:29:30" heads_up "lunch in 1m"
+  assert_reminder "2025-11-30 12:30:30" due "lunch now"
+  assert_reminder "2025-11-30 12:30:59" due "lunch now"
+  assert_reminder "2025-11-30 12:31:00" overdue "lunch 1m ago"
+  assert_reminder "2025-11-30 12:31:59" overdue "lunch 1m ago"
+}
+
+@test "a window is due through its last minute" {
+  config "walk = daily 19:00-20:00"
+  assert_reminder "2025-11-30 20:00:30" due "walk now, until 20:00"
+  assert_reminder "2025-11-30 20:01:00" overdue "walk 1m ago"
+}
+
+@test "a mistyped heads_up or overdue makes the line broken, so doctor names it" {
+  config "a = daily 10:00 | heads_up 10min" "b = daily 10:00 | overdue 1hour" "c = daily 10:00 | heads_up 10" \
+    "d = daily 10:00 | heads_up 2h | overdue 30m"
+  assert_equal "$ROUTINES_COUNT|${ROUTINES_NAME[*]}|${ROUTINES_HEADS[0]}|${ROUTINES_LATE[0]}" "1|d|7200|1800"
+  run printf '%s' "$ROUTINES_ERRORS"
+  assert_line --partial "line 1: a: heads_up needs a time like 10m, 2h or 1d"
+  assert_line --partial "line 2: b: overdue needs a time like 10m, 2h or 1d"
+  assert_line --partial "line 3: c: heads_up needs a time like 10m, 2h or 1d"
 }
