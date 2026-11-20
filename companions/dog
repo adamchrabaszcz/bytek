@@ -6,3 +6,5 @@ due_face: ^ᴗ^|ᵔᴗᵔ
 leash: yes
 overdue: (•ᴥ•)?|(•ᴥ•)
 overdue_text: waiting by the door
+heads_up_named: {name}'s {routine} in {in}
+overdue_named: {name} is waiting by the door

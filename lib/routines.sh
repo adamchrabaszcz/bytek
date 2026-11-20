@@ -302,8 +302,8 @@ routines_until() {
 # its last minute; "ago" counts full minutes from its end. An occurrence that ended before
 # today's midnight isn't seen as overdue.
 routines_reminder() {
-  local i now=$CLOCK_EPOCH start end heads late rank stage best=0 first=0 count=0 name text minute
-  ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0 ROUTINES_SHOWN_ICON="" ROUTINES_SHOWN_NAME=""
+  local i now=$CLOCK_EPOCH start end heads late rank stage best=0 first=0 count=0 name text minute when
+  ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0 ROUTINES_SHOWN_ICON="" ROUTINES_SHOWN_NAME="" ROUTINES_SHOWN_WHEN=""
   for ((i = 0; i < ROUTINES_COUNT; i++)); do
     heads=${ROUTINES_HEADS[i]} late=${ROUTINES_LATE[i]}
     # From now minus the overdue time, so an occurrence that has just passed is still found.
@@ -328,10 +328,10 @@ routines_reminder() {
     case $stage in
       heads_up)
         routines_until $((start - now))
-        text="$name in $REPLY"
+        text="$name in $REPLY" when=$REPLY
         ;;
       due)
-        text="$name now"
+        text="$name now" when=""
         if [ "$end" -gt "$start" ]; then
           minute=$((((end - CLOCK_MIDNIGHT) / 60) % 1440))
           printf -v minute '%02d:%02d' $((minute / 60)) $((minute % 60)) # -v: no subshell
@@ -340,10 +340,10 @@ routines_reminder() {
         ;;
       overdue)
         routines_until $(((now - end) / 60 * 60)) # full minutes: 12:31:30 is "1m ago"
-        text="$name $REPLY ago"
+        text="$name $REPLY ago" when=$REPLY
         ;;
     esac
-    ROUTINES_TEXT=$text ROUTINES_STAGE=$stage ROUTINES_SHOWN_ICON=${ROUTINES_ICON[i]} ROUTINES_SHOWN_NAME=${ROUTINES_NAME[i]}
+    ROUTINES_TEXT=$text ROUTINES_STAGE=$stage ROUTINES_SHOWN_ICON=${ROUTINES_ICON[i]} ROUTINES_SHOWN_NAME=${ROUTINES_NAME[i]} ROUTINES_SHOWN_WHEN=$when
   done
   [ "$count" -gt 0 ] && ROUTINES_MORE=$((count - 1))
   return 0

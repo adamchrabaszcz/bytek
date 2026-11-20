@@ -5,9 +5,11 @@
 # for it, the antenna reminder, is left in HOOKS_CONTEXT for bin/bytek to print.
 # Needs: clock, state, addon; from bin/bytek: BYTEK_ROOT, BYTEK_HOME.
 
-# Bytek's own command Claude runs to set the mood antenna, alone: "[path/]bytek addon <name>".
-# Combined with anything else (&&, ;, |), the command shows as usual.
-HOOKS_OWN_RE='^[[:space:]]*[^[:space:];&|]*bytek"?[[:space:]]+addon([[:space:]]+[a-z-]+)?[[:space:]]*$'
+# Bytek's own commands Claude runs, alone: "[path/]bytek addon <name>" (the mood antenna) and
+# "bytek name <companion> <Name>", the name one word or in double quotes (Claude's command
+# arrives with line breaks turned into spaces, so a longer name could hide a second command).
+# Combined with anything else (&&, ;, |, a line break), the command shows as usual.
+HOOKS_OWN_RE='^[[:space:]]*[^[:space:];&|]*bytek"?[[:space:]]+(addon([[:space:]]+[a-z-]+)?|name([[:space:]]+[a-z-]+([[:space:]]+([^[:space:];&|<>$`"\]+|"[^"$`\]*"))?)?)[[:space:]]*$'
 
 # Bash commands that count as running tests (extended regex, override with BYTEK_TEST_PATTERN).
 HOOKS_TEST_RE=${BYTEK_TEST_PATTERN:-'(^|[;&|(]|[[:space:]])(npm (run )?test|npm t|yarn (run )?test|pnpm (run )?test|bun test|npx (jest|vitest|mocha)|jest|vitest|mocha|pytest|python3? -m (pytest|unittest)|(vendor/bin/)?(phpunit|pest)|go test|cargo test|mvn.* (test|verify)|(\./)?gradlew? test|rspec|mix test|dotnet test|node --test|deno test|make (test|check)|[^[:space:]]*tests?/[^[:space:]]*\.sh)'}

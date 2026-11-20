@@ -1,0 +1,5 @@
+# Names for the companions, copied to ~/.claude/bytek/config/companions (or set with
+# `bytek name dog Rex`). One "companion = Name" per line; the companion is one in companions/
+# (dog, meal, report, invoice), the name at most 20 characters. Format:
+# docs/architecture/data-files.md.
+dog = Rex
