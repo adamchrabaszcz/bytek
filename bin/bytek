@@ -79,11 +79,7 @@ cmd_set() {
   [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid session id: $session"
   clock_now
   S_since=$REPLY
-  local f="$BYTEK_HOME/state/$session" locked="" written=0
-  state_lock "$f" && locked=1
-  state_write "$f" || written=1
-  [ -n "$locked" ] && state_unlock "$f"
-  [ "$written" = 0 ] || die "cannot write to $BYTEK_HOME/state"
+  state_write "$BYTEK_HOME/state/$session" || die "cannot write to $BYTEK_HOME/state"
 }
 
 cmd_hook() {

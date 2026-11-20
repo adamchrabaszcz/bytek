@@ -57,18 +57,14 @@ EOF
   f="$BYTEK_HOME/state/$session"
   [ -n "$cwd" ] && file=${file#"$cwd"/}
 
-  # Read, change and write the state under the session's lock, so a hook running at the same
-  # moment can't overwrite this update. Without the lock after the wait, go ahead anyway, and
-  # never release a lock that belongs to another hook.
-  local locked=""
-  state_lock "$f" && locked=1
   hooks_apply
-  [ -n "$locked" ] && state_unlock "$f"
   return 0
 }
 
 # Applies the event to the state file. Reads what hooks_handle parsed (event, tool, file,
 # pattern, cmd, message, ntype, err, f): bash locals are visible to the functions they call.
+# Hooks may run at the same moment: the last one's state wins, and edits go to the edit list,
+# where none get lost (lib/state.sh).
 hooks_apply() {
   local now n
   clock_now
@@ -78,28 +74,31 @@ hooks_apply() {
   case "$event" in
     SessionStart)
       state_to idle
-      S_turn_start="" S_edits="" S_files=""
+      S_turn_start=""
+      state_clear_edits "$f"
       hooks_follow_plugin_update
       find "$BYTEK_HOME/state" -type f -mtime +7 -delete 2>/dev/null
       ;;
     SessionEnd)
       rm -f "$f"
+      state_clear_edits "$f"
       return 0
       ;;
     UserPromptSubmit)
       state_to thinking
-      S_turn_start=$now S_edits=0 S_files=""
+      S_turn_start=$now
+      state_clear_edits "$f"
       ;;
     PreToolUse)
       case "$tool" in
         Read) state_to reading "$file" ;;
         Grep | Glob) state_to searching "$pattern" ;;
         Edit | Write | MultiEdit | NotebookEdit)
-          S_edits=$((${S_edits:-0} + 1))
-          case "${S_files:-|}" in *"|$file|"*) ;; *) S_files="${S_files:-|}$file|" ;; esac
-          n=${S_files//[!|]/}
-          n=$((${#n} - 1))
-          if [ "$n" -gt 1 ]; then state_to editing "$file" "editing $n files"; else state_to editing "$file"; fi
+          state_add_edit "$f" "$file"
+          state_count_edits "$f"
+          if [ "$STATE_FILES" -gt 1 ]; then
+            state_to editing "$file" "editing $STATE_FILES files"
+          else state_to editing "$file"; fi
           ;;
         Bash)
           if [[ "$cmd" =~ $HOOKS_TEST_RE ]]; then
@@ -136,7 +135,8 @@ hooks_apply() {
       ;;
     Stop)
       clock_duration $((now - ${S_turn_start:-$now}))
-      if [ "${S_edits:-0}" -gt 0 ]; then state_to "done" "$S_edits changes · $REPLY"; else state_to "done" "$REPLY"; fi
+      state_count_edits "$f"
+      if [ "$STATE_EDITS" -gt 0 ]; then state_to "done" "$STATE_EDITS changes · $REPLY"; else state_to "done" "$REPLY"; fi
       ;;
     *)
       return 0

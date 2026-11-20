@@ -17,12 +17,19 @@ One per Claude Code session (`<session>` is the session id: letters, digits, `_`
 | `progress` | `N/M` for `{progress}`; empty shows a sweeping cell | `3/5` |
 | `since` | when the state last changed, seconds since 1970 | `1763635200` |
 | `turn_start` | when the prompt was sent, for the turn's duration | `1763635100` |
-| `edits` | file edits in this turn | `4` |
-| `files` | files edited in this turn, `\|`-separated with `\|` at both ends | `\|src/a.ts\|src/b.ts\|` |
+Values are one line: line breaks and tabs become spaces and control characters are removed when the file is written. Unknown keys are ignored when it is read (older versions also kept `edits` and `files` here), and a missing file reads as `idle`. Files untouched for 7 days are removed at the next session start; a session's file is removed when it ends.
 
-Values are one line: line breaks and tabs become spaces and control characters are removed when the file is written. Unknown keys are ignored when it is read, and a missing file reads as `idle`. Files untouched for 7 days are removed at the next session start; a session's file is removed when it ends.
+The file is written whole (temp file and rename) and never locked: when hooks run at the same moment, the last one's state wins (`docs/adr/0007-no-lock-append-edits.md`).
 
-While a hook or `bytek set` changes a state file, it holds a lock: a directory next to it, `<session>.lock`, with a file `since` holding the time it was taken (seconds since 1970). The next writer waits for it up to `BYTEK_LOCK_WAIT` seconds (default 2) and then goes ahead without it; a lock older than `BYTEK_LOCK_STALE` seconds (default 10) was left by a crash and is removed.
+## Edit list: `$BYTEK_HOME/state/<session>.edits`
+
+The files edited in the current turn, one path per line, one line per edit (a file edited twice is there twice), with control characters removed. Hooks append to it, which is atomic, so edits from hooks running at the same moment all count; the edit count is its number of lines, the number of files its different lines. A new prompt or session start clears it, the session's end removes it.
+
+```
+src/api.ts
+src/app.ts
+src/api.ts
+```
 
 An `idle` or `done` state older than `BYTEK_SLEEP_AFTER` seconds (default 600) is shown as `sleeping`.
 
