@@ -8,11 +8,11 @@ load helpers
 assert_aligned() {
   local n=0 l1="" l2="" l3="" l4="" line
   while IFS= read -r line; do
+    line=${line#$'\033[0m'} # the invisible reset that keeps Claude Code from trimming the line
     n=$((n + 1))
     case $n in 1) l1=$line ;; 2) l2=$line ;; 3) l3=$line ;; 4) l4=$line ;; esac
   done <<<"$1"
   [ "$n" -eq 4 ] || fail "$2: expected 4 lines, got $n"
-  l1=${l1#$'\033[0m'} # the invisible reset that keeps Claude Code from trimming the indent
   [ "${l1:0:4}" = "    " ] || fail "$2: antenna not in column 5: '$l1'"
   [ "${l1:4:1}" != " " ] || fail "$2: antenna missing: '$l1'"
   [ "$l2" = " ╭──┴──╮" ] || fail "$2: box top shifted: '$l2'"
@@ -70,13 +70,18 @@ assert_aligned() {
   assert_output --partial "▱▱▰▱▱"
 }
 
-@test "the output doesn't start with whitespace, so trimming keeps the antenna's column" {
-  # Claude Code trims whitespace from the start of the status line's output (#83).
+@test "no line starts with whitespace, so trimming each line keeps the antenna above its stick" {
+  # Claude Code trims the leading whitespace of each status line row (#83).
+  local line trimmed=""
   "$BYTEK" set thinking
   run render
-  [[ "$output" != [[:space:]]* ]] || fail "output starts with whitespace: '${output:0:10}'"
-  local trimmed="${output#"${output%%[![:space:]]*}"}" first
-  first=${trimmed%%$'\n'*}
-  first=${first#$'\033[0m'}
-  assert_equal "${first:0:5}" "    ♡"
+  while IFS= read -r line; do
+    [[ "$line" != [[:space:]]* ]] || fail "a line starts with whitespace: '$line'"
+    # What Claude Code shows: each line trimmed, the invisible reset removed.
+    line=${line#"${line%%[![:space:]]*}"}
+    trimmed="$trimmed${line#$'\033[0m'}"$'\n'
+  done <<<"$output"
+  run printf '%s' "$trimmed"
+  assert_line --index 0 --partial "    ♡"
+  assert_line --index 1 " ╭──┴──╮"
 }
