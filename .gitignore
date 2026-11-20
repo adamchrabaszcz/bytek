@@ -7,6 +7,9 @@
 /reports/
 /backup/
 /coverage/
+# Bundler's gems and settings for the coverage tools (Gemfile)
+/vendor/
+/.bundle/
 *.local
 *.local.*
 
