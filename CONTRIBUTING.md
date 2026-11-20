@@ -4,6 +4,13 @@ Thanks for helping Bytek grow. Most contributions are small: a new face, antenna
 
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Editors pick up the shared settings (UTF-8, LF, final newline, 2-space indent) from `.editorconfig`.
 
+Where things are written down:
+
+- `AGENTS.md`: the short version for coding agents (guardrails, what to decide alone and what to ask). Claude Code reads it directly (v2.1.277 or later), as long as there is no `CLAUDE.md`, so the repository has none.
+- `docs/adr/`: architecture decision records, numbered, never deleted.
+- `docs/architecture/`: how the engine is put together and the file formats.
+- `docs/patterns/`: code shapes to follow, each with the anti-pattern it replaces.
+
 ## Workflow
 
 1. Find or open an issue for the change (format below).
@@ -17,9 +24,22 @@ Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Editors 
 
 - Each feature, fix or docs change gets its own branch and pull request, even when several are asked for at once. A request with three things is three pull requests.
 - Keep them independent: each starts from `main`, not from another open branch, and can be merged in any order.
-- When a step really needs an earlier one (the hooks need the renderer), open its pull request after the earlier one is merged, or rebase it onto `main` once it is.
-- If `main` moves and a pull request conflicts, update it from `main` rather than piling more onto it.
+- When a step really needs an earlier one (the hooks need the renderer), open its pull request after the earlier one is merged, or update it from `main` once it is.
+- If `main` moves and a pull request conflicts, merge `main` into the branch rather than piling more onto it. No force-pushes: the squash merge leaves `main` with one commit anyway.
 - Small means reviewable in one sitting: one behaviour, its tests and its docs.
+
+### Definition of done
+
+A pull request is ready to merge when:
+
+- [ ] it closes exactly one issue, and every "Done when" item there is met
+- [ ] a test fails without the change and passes with it
+- [ ] `tests/run.sh` and `tools/lint.sh` pass locally (on a Mac under `/bin/bash` too) and CI is green
+- [ ] the change was seen in a real terminal, when it shows on the status line
+- [ ] docs it makes wrong are updated: README, this file, `AGENTS.md`, `docs/`, the usage text in `bin/bytek`
+- [ ] a decision that is costly to reverse has an ADR in `docs/adr/`
+- [ ] no personal data and no secrets
+- [ ] the title is a Conventional Commit with the right type, and the description ends with `Closes #<issue>`
 
 ### Every change has tests
 
