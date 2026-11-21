@@ -14,14 +14,20 @@ setup() {
 # Prints, as U+XXXX, each character of stdin that a terminal shows wider or narrower than one
 # column: East Asian wide and fullwidth, emoji, zero-width and combining characters. bash 3.2
 # can't read a character's code point, so iconv turns the text into UTF-32 (4 bytes each).
+# Text that isn't UTF-8 prints "not UTF-8".
 odd_widths() {
-  local bytes i cp
+  local bytes i cp u32="$BATS_TEST_TMPDIR/utf32"
+  iconv -f UTF-8 -t UTF-32BE >"$u32" 2>/dev/null || {
+    echo "not UTF-8"
+    return
+  }
   # shellcheck disable=SC2207 # od's output is hex bytes split on spaces, nothing to glob
-  bytes=($(iconv -f UTF-8 -t UTF-32BE | od -An -v -tx1))
+  bytes=($(od -An -v -tx1 <"$u32"))
   for ((i = 0; i + 3 < ${#bytes[@]}; i += 4)); do
     cp=$((16#${bytes[i]}${bytes[i + 1]}${bytes[i + 2]}${bytes[i + 3]}))
     if ((cp >= 0x0300 && cp <= 0x036F)) || ((cp >= 0x1100 && cp <= 0x115F)) ||
-      ((cp >= 0x200B && cp <= 0x200F)) || ((cp >= 0x20D0 && cp <= 0x20FF)) ||
+      ((cp >= 0x200B && cp <= 0x200F)) || ((cp >= 0x2060 && cp <= 0x2064)) || ((cp == 0xFEFF)) ||
+      ((cp >= 0x20D0 && cp <= 0x20FF)) ||
       ((cp >= 0x231A && cp <= 0x231B)) || ((cp >= 0x23E9 && cp <= 0x23EC)) || ((cp == 0x23F0 || cp == 0x23F3)) ||
       ((cp >= 0x25FD && cp <= 0x25FE)) || ((cp >= 0x2614 && cp <= 0x2615)) || ((cp >= 0x2648 && cp <= 0x2653)) ||
       ((cp == 0x267F || cp == 0x2693 || cp == 0x26A1 || cp == 0x26CE || cp == 0x26D4 || cp == 0x26EA)) ||
@@ -51,6 +57,8 @@ frames_of() {
   assert_equal "$(printf '😀' | odd_widths)" "U+1F600"
   assert_equal "$(printf 'e\314\201' | odd_widths)" "U+0301"
   assert_equal "$(printf '\342\234\250\357\270\217' | odd_widths)" $'U+2728\nU+FE0F'
+  assert_equal "$(printf 'a\342\201\240b\357\273\277' | odd_widths)" $'U+2060\nU+FEFF'
+  assert_equal "$(printf 'a\377b' | odd_widths)" "not UTF-8"
   assert_equal "$(printf '•ᴗ• ♡ ☼ ╭──┴──╮ (ᵔᴥᵔ) ~\\_/ [≡] ▰▱ ◜' | odd_widths)" ""
 }
 
