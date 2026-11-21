@@ -38,3 +38,13 @@ setup() {
   hook '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"bytek done walk && npm test"}}'
   assert_state s1 state testing
 }
+
+@test "a name is one word as in the config; a disabled routine points to the config" {
+  printf '%s\n' "wrap_up = daily 16:30" "walk = daily 13:30 | disable" >"$BYTEK_HOME/config/routines"
+  run "$BYTEK" "done" wrap up
+  assert_failure
+  assert_output --partial "one word, as in the config: wrap_up"
+  run "$BYTEK" "done" walk
+  assert_failure
+  assert_output --partial "unknown routine: walk (or one with disable; see $BYTEK_HOME/config/routines)"
+}

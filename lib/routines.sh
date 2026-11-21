@@ -396,12 +396,13 @@ routines_cleared_load() {
 # file and rename), dropping entries older than ROUTINES_CLEARED_KEEP. Needs routines_load and
 # clock_fields; from bin/bytek: die.
 routines_clear() {
-  local how=$1 name=${2// /_} i found="" now start minute line kept="" old tmp re='^[a-z][a-z0-9_]* ([0-9]+) '
+  local how=$1 name=$2 i found="" now start minute line kept="" old tmp re='^[a-z][a-z0-9_]* ([0-9]+) '
   [ -n "$name" ] || die "usage: bytek $how <routine>"
+  [[ "$name" != *" "* ]] || die "a routine's name is one word, as in the config: ${name// /_}"
   for ((i = 0; i < ROUTINES_COUNT; i++)); do
     [ "${ROUTINES_NAME[i]}" = "$name" ] && found=$i
   done
-  [ -n "$found" ] || die "unknown routine: $name (see: bytek doctor)"
+  [ -n "$found" ] || die "unknown routine: $name (or one with disable; see $ROUTINES_FILE)"
   now=$CLOCK_EPOCH
   routines_cleared_load || die "$ROUTINES_CLEARED_FILE is from a newer Bytek; left as it is"
   routines_current "$found" "$now" || die "no $name coming up to clear"
@@ -425,7 +426,7 @@ routines_clear() {
     die "cannot write $ROUTINES_CLEARED_FILE"
   fi
   minute=$(((start - CLOCK_MIDNIGHT) / 60))
-  # A start on another day than today (a window over midnight that began yesterday) wraps.
+  # A heads-up can show for tomorrow (heads_up 1d): its time of day, not minutes past today.
   minute=$(((minute % 1440 + 1440) % 1440))
   [ "$how" = skip ] && how=skipped
   printf '%s at %02d:%02d: %s\n' "${name//_/ }" $((minute / 60)) $((minute % 60)) "$how"
