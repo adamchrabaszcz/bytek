@@ -19,7 +19,7 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/locale.sh` | picks a UTF-8 locale so text is counted in characters | nothing |
 | `lib/clock.sh` | the current time, file name stamps, durations: every `date` goes through it | nothing |
 | `lib/state.sh` | reads, writes and switches a session's state file; its edit list | nothing |
-| `lib/routines.sh` | the user's routines: reads `config/routines`, works out when each happens next | clock |
+| `lib/routines.sh` | the user's routines: reads `config/routines`, works out when each happens next; `bytek done` and `skip` | clock |
 | `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | nothing |
 | `lib/companions.sh` | the names given to companions: reads `config/companions`, and `bytek name` | nothing |
 | `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders | clock, state, addon, routines, companions |

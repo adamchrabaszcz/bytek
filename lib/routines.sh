@@ -8,7 +8,10 @@
 # Needs: clock.
 
 ROUTINES_FILE="${BYTEK_ROUTINES:-$BYTEK_HOME/config/routines}"
-ROUTINES_HORIZON=366 # days to look ahead for the next occurrence (a season can be months away)
+ROUTINES_HORIZON=366                        # days to look ahead for the next occurrence (a season can be months away)
+ROUTINES_CLEARED_FILE="$BYTEK_HOME/cleared" # occurrences cleared with done or skip
+ROUTINES_CLEARED_FORMAT=1                   # the newest cleared file format this version reads
+ROUTINES_CLEARED_KEEP=172800                # seconds a cleared occurrence is kept after its start: 2 days
 
 # Sets REPLY to the minutes after midnight of "HH:MM" $1; returns 1 if it isn't a time.
 routines_minutes() {
@@ -304,13 +307,10 @@ routines_until() {
 routines_reminder() {
   local i now=$CLOCK_EPOCH start end heads late rank stage best=0 first=0 count=0 name text minute when
   ROUTINES_TEXT="" ROUTINES_STAGE="" ROUTINES_MORE=0 ROUTINES_SHOWN_ICON="" ROUTINES_SHOWN_NAME="" ROUTINES_SHOWN_WHEN=""
+  routines_cleared_load
   for ((i = 0; i < ROUTINES_COUNT; i++)); do
     heads=${ROUTINES_HEADS[i]} late=${ROUTINES_LATE[i]}
-    # From now minus the overdue time, so an occurrence that has just passed is still found.
-    CLOCK_EPOCH=$((now - late))
-    routines_next "$i"
-    CLOCK_EPOCH=$now
-    [ -n "$REPLY" ] || continue
+    routines_current "$i" "$now" || continue
     start=${REPLY% *} end=${REPLY#* }
     # Without a heads_up option, start - heads is the start itself: no heads-up stage.
     if [ "$now" -lt $((start - heads)) ]; then
@@ -347,4 +347,86 @@ routines_reminder() {
   done
   [ "$count" -gt 0 ] && ROUTINES_MORE=$((count - 1))
   return 0
+}
+
+# Sets REPLY to "start end" of routine $1's occurrence that a reminder is about at moment $2:
+# the first one not over for longer than its overdue time and not cleared (done or skip).
+# Returns 1 when none comes within ROUTINES_HORIZON days. Reads ROUTINES_CLEARED
+# (routines_cleared_load) and leaves CLOCK_EPOCH at $2.
+routines_current() {
+  local i=$1 start end
+  # From $2 minus the overdue time, so an occurrence that has just passed is still found.
+  CLOCK_EPOCH=$(($2 - ROUTINES_LATE[i]))
+  while routines_next "$i"; do
+    start=${REPLY% *} end=${REPLY#* }
+    case "$ROUTINES_CLEARED" in
+      *" ${ROUTINES_NAME[i]}@$start "*) CLOCK_EPOCH=$((end + 1)) ;; # cleared: the one after it
+      *)
+        CLOCK_EPOCH=$2
+        return 0
+        ;;
+    esac
+  done
+  CLOCK_EPOCH=$2
+  return 1
+}
+
+# Reads the cleared file into ROUTINES_CLEARED, " name@start " for each cleared occurrence. A
+# missing file clears nothing; one without a format line this Bytek reads (a newer one) clears
+# nothing and returns 1, so nobody overwrites it. A plain file read: no programs on the render path.
+routines_cleared_load() {
+  local line first=1 name start
+  ROUTINES_CLEARED=" "
+  [ -f "$ROUTINES_CLEARED_FILE" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ -n "$first" ]; then
+      first=""
+      [[ "$line" =~ ^format=([0-9]+)$ ]] && [ "${BASH_REMATCH[1]}" -le "$ROUTINES_CLEARED_FORMAT" ] && continue
+      return 1
+    fi
+    name=${line%% *} start=${line#* }
+    start=${start%% *}
+    [[ "$name" =~ ^[a-z][a-z0-9_]*$ && "$start" =~ ^[0-9]+$ ]] && ROUTINES_CLEARED="$ROUTINES_CLEARED$name@$start "
+  done <"$ROUTINES_CLEARED_FILE"
+  return 0
+}
+
+# bytek done|skip <routine>: clears routine $2's occurrence with $1 (done or skip): the one its
+# reminder shows now, else the next one that starts today. Writes the cleared file whole (temp
+# file and rename), dropping entries older than ROUTINES_CLEARED_KEEP. Needs routines_load and
+# clock_fields; from bin/bytek: die.
+routines_clear() {
+  local how=$1 name=${2// /_} i found="" now start minute line kept="" old tmp re='^[a-z][a-z0-9_]* ([0-9]+) '
+  [ -n "$name" ] || die "usage: bytek $how <routine>"
+  for ((i = 0; i < ROUTINES_COUNT; i++)); do
+    [ "${ROUTINES_NAME[i]}" = "$name" ] && found=$i
+  done
+  [ -n "$found" ] || die "unknown routine: $name (see: bytek doctor)"
+  now=$CLOCK_EPOCH
+  routines_cleared_load || die "$ROUTINES_CLEARED_FILE is from a newer Bytek; left as it is"
+  routines_current "$found" "$now" || die "no $name coming up to clear"
+  start=${REPLY% *}
+  # Not showing yet (before its heads-up): only one that starts today.
+  if [ "$now" -lt $((start - ROUTINES_HEADS[found])) ] && [ "$start" -ge $((CLOCK_MIDNIGHT + 86400)) ]; then
+    die "no $name left today to clear"
+  fi
+  # Keeps the other entries that are recent enough.
+  old=$((now - ROUTINES_CLEARED_KEEP))
+  if [ -f "$ROUTINES_CLEARED_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      [[ "$line" =~ $re ]] && [ "${BASH_REMATCH[1]}" -ge "$old" ] && kept="$kept$line"$'\n'
+    done <"$ROUTINES_CLEARED_FILE"
+  fi
+  mkdir -p "${ROUTINES_CLEARED_FILE%/*}" || die "cannot create ${ROUTINES_CLEARED_FILE%/*}"
+  tmp=$(mktemp "$ROUTINES_CLEARED_FILE.XXXXXX") || die "cannot write $ROUTINES_CLEARED_FILE"
+  if ! { printf 'format=%s\n%s%s %s %s %s\n' "$ROUTINES_CLEARED_FORMAT" "$kept" "$name" "$start" "$how" "$now" >"$tmp" &&
+    mv "$tmp" "$ROUTINES_CLEARED_FILE"; }; then
+    rm -f "$tmp"
+    die "cannot write $ROUTINES_CLEARED_FILE"
+  fi
+  minute=$(((start - CLOCK_MIDNIGHT) / 60))
+  # A start on another day than today (a window over midnight that began yesterday) wraps.
+  minute=$(((minute % 1440 + 1440) % 1440))
+  [ "$how" = skip ] && how=skipped
+  printf '%s at %02d:%02d: %s\n' "${name//_/ }" $((minute / 60)) $((minute % 60)) "$how"
 }

@@ -198,3 +198,76 @@ assert_reminder() {
   run printf '%s' "$ROUTINES_ERRORS"
   assert_line --partial "line 2: bad: icon needs a name like dog or meal"
 }
+
+# Clears routine $2 with $1 (done or skip) at moment "$3", through routines_clear.
+clear_at() {
+  clock_fields "$(at "$3")"
+  routines_clear "$1" "$2"
+}
+
+# Prints the reminder text at moment "$1".
+reminder_at() {
+  clock_fields "$(at "$1")"
+  routines_reminder
+  printf '%s' "$ROUTINES_TEXT"
+}
+
+@test "done clears the occurrence showing now; the next one shows as usual" {
+  config "walk = daily 13:30-14:10, 18:00-18:40 | heads_up 10m"
+  assert_equal "$(reminder_at "2025-11-30 14:15")" "walk 5m ago"
+  run clear_at "done" walk "2025-11-30 14:15"
+  assert_success
+  assert_output "walk at 13:30: done"
+  assert_equal "$(reminder_at "2025-11-30 14:15")" ""
+  assert_equal "$(reminder_at "2025-11-30 17:55")" "walk in 5m"
+}
+
+@test "skip before the heads-up clears the next one today; nothing left today is refused" {
+  config "walk = daily 13:30, 18:00 | heads_up 10m"
+  run clear_at skip walk "2025-11-30 15:00"
+  assert_output "walk at 18:00: skipped"
+  assert_equal "$(reminder_at "2025-11-30 17:55")" ""
+  assert_equal "$(reminder_at "2025-12-01 13:25")" "walk in 5m"
+  run clear_at skip walk "2025-11-30 19:00"
+  assert_failure
+  assert_output --partial "no walk left today to clear"
+}
+
+@test "clearing twice moves on to the following occurrence" {
+  config "walk = daily 13:30, 18:00 | heads_up 10m"
+  run clear_at "done" walk "2025-11-30 13:25"
+  assert_output "walk at 13:30: done"
+  run clear_at "done" walk "2025-11-30 13:26"
+  assert_output "walk at 18:00: done"
+}
+
+@test "an unknown routine is refused and nothing is written" {
+  config "walk = daily 13:30"
+  run clear_at "done" lunch "2025-11-30 13:30"
+  assert_failure
+  assert_output --partial "unknown routine: lunch"
+  [ ! -e "$BYTEK_HOME/cleared" ]
+}
+
+@test "the cleared file is versioned, and entries older than two days drop out" {
+  config "walk = daily 13:30" "lunch = daily 12:30"
+  clear_at "done" lunch "2025-11-27 12:30" >/dev/null
+  clear_at "done" walk "2025-11-29 13:30" >/dev/null
+  clear_at "done" walk "2025-11-30 13:30" >/dev/null
+  run cat "$BYTEK_HOME/cleared"
+  assert_line --index 0 "format=1"
+  refute_output --partial "lunch"
+  assert_line --index 1 --partial "walk $(at "2025-11-29 13:30") done"
+  assert_line --index 2 --partial "walk $(at "2025-11-30 13:30") done"
+}
+
+@test "a cleared file from a newer Bytek clears nothing and is left as it is" {
+  config "walk = daily 13:30"
+  printf 'format=2\nwalk %s done 0\n' "$(at "2025-11-30 13:30")" >"$BYTEK_HOME/cleared"
+  assert_equal "$(reminder_at "2025-11-30 13:30")" "walk now"
+  run clear_at "done" walk "2025-11-30 13:30"
+  assert_failure
+  assert_output --partial "from a newer Bytek"
+  run head -1 "$BYTEK_HOME/cleared"
+  assert_output "format=2"
+}

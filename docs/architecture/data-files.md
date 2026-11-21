@@ -12,6 +12,7 @@ Files that outlive a Bytek version carry a format version, so a newer Bytek can 
 | face file | `format: 1`, optional | format 1 | the idle face is shown instead |
 | add-on file | `format: 1`, optional | format 1 | the plain heart is shown instead |
 | companion file | `format: 1`, optional | format 1 | the reminder shows without its companion, with `◷` |
+| cleared file | `format=1`, its first line | not read: clears nothing | clears nothing; `bytek done` leaves the file alone |
 | saved status line | `{"format": 1, "statusLine": ...}` | the status line itself (saved before formats existed) | uninstall puts nothing back and keeps the file |
 
 Changing a format means a new version number, and reading the older one (a migration) for as long as such files can still exist. Removing a field, or giving one a new meaning, is a breaking change: a `!` in its commit type and a `BREAKING CHANGE:` footer (CONTRIBUTING, "Commits"). Adding a field older versions can ignore needs neither.
@@ -87,9 +88,9 @@ invoice  = monthly last-workday 10:00  | icon invoice | heads_up 1d
 
 - **name:** lowercase letters, digits and `_`, starting with a letter; each name once.
 - **schedule:** `daily`, `weekdays` (Monday to Friday), days (`mon,tue,wed,thu,fri,sat,sun`, comma-separated), `monthly <1-31>` or `monthly last-workday` (the last Monday to Friday of the month; holidays aren't known), followed by times and windows, comma-separated: `10:30, 15:00` or `19:00-20:00`. A window can't cross midnight. A monthly day a month doesn't have (31 in November) is skipped that month.
-- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `heads_up 10m` (or `1h`, `1d`) shows a reminder that long before; `overdue 30m` how long it stays after its time or window (default 20 minutes); anything else there (`10min`, `1hour`) makes the line one Bytek can't read. `icon dog` puts a companion next to Bytek (`companions/<name>`, below; a name with no companion file keeps the `◷`). `clear` and `action` are for later steps (#98, #99, #13).
+- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `heads_up 10m` (or `1h`, `1d`) shows a reminder that long before; `overdue 30m` how long it stays after its time or window (default 20 minutes); anything else there (`10min`, `1hour`) makes the line one Bytek can't read. `icon dog` puts a companion next to Bytek (`companions/<name>`, below; a name with no companion file keeps the `◷`). `clear` and `action` are for later steps (#99, #13).
 
-**On the status line**, the most urgent reminder goes first in the status row, what Claude is doing after it: `◷ lunch in 8m · editing 3 files` (heads-up), `◷ lunch now` or `◷ walk now, until 20:00` (due), `◷ lunch 15m ago` in bold (overdue), with `+1` when more are active (the detail row stays on what Claude is doing). A time is due for its whole minute, a window through its last one. Overdue beats due beats a heads-up; among equals, the one that starts first. In a narrow terminal the work status is shortened, not the reminder. Until clearing comes (#98, #99) a reminder stays for its overdue time; one whose time passed before midnight isn't shown after it.
+**On the status line**, the most urgent reminder goes first in the status row, what Claude is doing after it: `◷ lunch in 8m · editing 3 files` (heads-up), `◷ lunch now` or `◷ walk now, until 20:00` (due), `◷ lunch 15m ago` in bold (overdue), with `+1` when more are active (the detail row stays on what Claude is doing). A time is due for its whole minute, a window through its last one. Overdue beats due beats a heads-up; among equals, the one that starts first. In a narrow terminal the work status is shortened, not the reminder. `bytek done walk` (or `bytek skip walk`) clears a reminder: the occurrence showing now, else the next one that starts today; the next one shows as usual. Otherwise a reminder stays for its overdue time; one whose time passed before midnight isn't shown after it.
 
 A line Bytek can't read is skipped, so the others still work, and `bytek doctor` names it. The file has no version line: it's written by people, and a later format keeps reading this one.
 
@@ -118,6 +119,10 @@ The companion stands at the start of the detail row, Claude's detail after it; t
 
 Written by `bytek name dog Rex` (or by hand); example in `examples/companions.example`. One `companion = Name` per line; lines starting with `#` are comments. The companion must be one in `companions/`; the name is cut to 20 characters, control characters dropped, and can't contain `=`. A companion with a name uses its `*_named` texts; without one, or when the file doesn't have them, the plain texts. Every routine with that `icon` gets the same name. `bytek doctor` names lines it can't use.
 
+## Cleared file: `$BYTEK_HOME/cleared`
+
+The occurrences cleared with `bytek done <routine>` or `bytek skip <routine>`. Plain text: first `format=1`, then one line per occurrence, `<routine> <start> <how> <when>`: the routine's name, the occurrence's start and the moment it was cleared (seconds since 1970), and `done` or `skip`. Read on every render while routines are set up, so the reminder moves on to the routine's next occurrence. Each `bytek done` or `skip` writes it whole (temp file and rename) and drops entries that started more than 2 days ago. When two clear at the same moment, the last one wins (as with the state file, `docs/adr/0007-no-lock-append-edits.md`).
+
 ## Files in `$BYTEK_HOME`
 
 | Path | Written by | What |
@@ -129,5 +134,6 @@ Written by `bytek name dog Rex` (or by hand); example in `examples/companions.ex
 | `config/antenna-reminders-off` | the user | while it exists, hooks print no antenna reminder (`docs/mood-antenna.md`) |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
+| `cleared` | `bytek done`, `bytek skip` | the cleared reminders (above) |
 | `config/` | the user, `bytek name` | personal settings: `routines` and `companions` (above), and later others (places); each feature documents its file here |
 | `cache/` | providers | cache files from background providers; none yet (`bounded-contexts.md`) |
