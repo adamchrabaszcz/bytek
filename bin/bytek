@@ -11,6 +11,7 @@
 #   bytek name [companion [Name]]    name a companion (bytek name dog Rex); without a name, remove it
 #   bytek done <routine>             clear the routine's reminder: the one showing, else the next today
 #   bytek skip <routine>             the same, as skipped
+#   bytek away                       note how long the Mac has been idle (the status line runs it)
 #   bytek hook                       Claude Code hook entry point (hook JSON on stdin)
 #   bytek setup [--hooks]            make Bytek the status line (backs up settings.json);
 #                                    --hooks also adds the hooks (installs without the plugin)
@@ -101,7 +102,7 @@ cmd_states() {
   for f in "$BYTEK_ROOT"/faces/*; do printf '%s\n' "${f##*/}"; done
 }
 
-usage() { sed -n '2,20s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,21s/^# \{0,1\}//p' "$0"; }
 
 case "${1:-}" in
   render)
@@ -115,9 +116,25 @@ case "${1:-}" in
     . "$BYTEK_LIB/routines.sh"
     # shellcheck source=lib/companions.sh
     . "$BYTEK_LIB/companions.sh"
+    # shellcheck source=lib/away.sh
+    . "$BYTEK_LIB/away.sh"
     # shellcheck source=lib/render.sh
     . "$BYTEK_LIB/render.sh"
     cmd_render
+    ;;
+  away)
+    # shellcheck source=lib/clock.sh
+    . "$BYTEK_LIB/clock.sh"
+    # shellcheck source=lib/routines.sh
+    . "$BYTEK_LIB/routines.sh"
+    # shellcheck source=lib/away.sh
+    . "$BYTEK_LIB/away.sh"
+    clock_fields
+    away_idle || exit 0
+    idle=$REPLY
+    away_write "$CLOCK_EPOCH" "$idle" || exit 0
+    routines_load
+    routines_clear_away "$idle" || exit 1
     ;;
   done | skip)
     # shellcheck source=lib/clock.sh
@@ -169,6 +186,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/routines.sh"
     # shellcheck source=lib/companions.sh
     . "$BYTEK_LIB/companions.sh"
+    # shellcheck source=lib/away.sh
+    . "$BYTEK_LIB/away.sh"
     # shellcheck source=lib/doctor.sh
     . "$BYTEK_LIB/doctor.sh"
     doctor_run || exit 1

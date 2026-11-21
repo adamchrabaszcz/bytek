@@ -13,6 +13,7 @@ Files that outlive a Bytek version carry a format version, so a newer Bytek can 
 | add-on file | `format: 1`, optional | format 1 | the plain heart is shown instead |
 | companion file | `format: 1`, optional | format 1 | the reminder shows without its companion, with `◷` |
 | cleared file | `format=1`, its first line | not read: clears nothing | clears nothing; `bytek done` leaves the file alone |
+| away file | `format=1`, its first line | no check yet: one starts | no check yet: one starts and writes format 1 |
 | saved status line | `{"format": 1, "statusLine": ...}` | the status line itself (saved before formats existed) | uninstall puts nothing back and keeps the file |
 
 Changing a format means a new version number, and reading the older one (a migration) for as long as such files can still exist. Removing a field, or giving one a new meaning, is a breaking change: a `!` in its commit type and a `BREAKING CHANGE:` footer (CONTRIBUTING, "Commits"). Adding a field older versions can ignore needs neither.
@@ -81,14 +82,14 @@ The user's reminders, written by hand (`examples/routines.example` to start from
 
 ```
 name = schedule | option | option ...
-lunch    = daily 12:30                 | icon bowl | heads_up 10m | clear idle
+lunch    = daily 12:30                 | icon meal | heads_up 10m | clear idle
 training = tue,thu 18:30 | months 4-10 | icon bike | heads_up 30m
 invoice  = monthly last-workday 10:00  | icon invoice | heads_up 1d
 ```
 
 - **name:** lowercase letters, digits and `_`, starting with a letter; each name once.
 - **schedule:** `daily`, `weekdays` (Monday to Friday), days (`mon,tue,wed,thu,fri,sat,sun`, comma-separated), `monthly <1-31>` or `monthly last-workday` (the last Monday to Friday of the month; holidays aren't known), followed by times and windows, comma-separated: `10:30, 15:00` or `19:00-20:00`. A window can't cross midnight. A monthly day a month doesn't have (31 in November) is skipped that month.
-- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `heads_up 10m` (or `1h`, `1d`) shows a reminder that long before; `overdue 30m` how long it stays after its time or window (default 20 minutes); anything else there (`10min`, `1hour`) makes the line one Bytek can't read. `icon dog` puts a companion next to Bytek (`companions/<name>`, below; a name with no companion file keeps the `◷`). `clear` and `action` are for later steps (#99, #13).
+- **options:** `months 4-10` (or `months 12`) limits it to those months; a range like `10-4` runs over New Year. `disable` turns the routine off. `heads_up 10m` (or `1h`, `1d`) shows a reminder that long before; `overdue 30m` how long it stays after its time or window (default 20 minutes); anything else there (`10min`, `1hour`) makes the line one Bytek can't read. `icon dog` puts a companion next to Bytek (`companions/<name>`, below; a name with no companion file keeps the `◷`). `clear idle` clears the occurrence when the Mac has had no keyboard or mouse input for 10 minutes while it's due or overdue (`clear idle 15m` for another time): away during it means it happened. It works on macOS (`ioreg`); elsewhere `bytek doctor` says so. `action` is for a later step (#13).
 
 **On the status line**, the most urgent reminder goes first in the status row, what Claude is doing after it: `◷ lunch in 8m · editing 3 files` (heads-up), `◷ lunch now` or `◷ walk now, until 20:00` (due), `◷ lunch 15m ago` in bold (overdue), with `+1` when more are active (the detail row stays on what Claude is doing). A time is due for its whole minute, a window through its last one. Overdue beats due beats a heads-up; among equals, the one that starts first. In a narrow terminal the work status is shortened, not the reminder. `bytek done walk` (or `bytek skip walk`) clears a reminder: the occurrence showing now, else the next one that starts today; the next one shows as usual. Otherwise a reminder stays for its overdue time; one whose time passed before midnight isn't shown after it.
 
@@ -121,7 +122,11 @@ Written by `bytek name dog Rex` (or by hand); example in `examples/companions.ex
 
 ## Cleared file: `$BYTEK_HOME/cleared`
 
-The occurrences cleared with `bytek done <routine>` or `bytek skip <routine>`. Plain text: first `format=1`, then one line per occurrence, `<routine> <start> <how> <when>`: the routine's name, the occurrence's start and the moment it was cleared (seconds since 1970), and `done` or `skip`. Read on every render while routines are set up, so the reminder moves on to the routine's next occurrence. Each `bytek done` or `skip` writes it whole (temp file and rename) and drops entries that started more than 2 days ago. When two clear at the same moment, the last one wins (as with the state file, `docs/adr/0007-no-lock-append-edits.md`).
+The occurrences cleared with `bytek done <routine>` or `bytek skip <routine>`. Plain text: first `format=1`, then one line per occurrence, `<routine> <start> <how> <when>`: the routine's name, the occurrence's start and the moment it was cleared (seconds since 1970), and `done`, `skip` or `idle` (cleared by `bytek away`). Read on every render while routines are set up, so the reminder moves on to the routine's next occurrence. Each `bytek done` or `skip` writes it whole (temp file and rename) and drops entries that started more than 2 days ago. When two clear at the same moment, the last one wins (as with the state file, `docs/adr/0007-no-lock-append-edits.md`).
+
+## Away file: `$BYTEK_HOME/away`
+
+The last check of how long the Mac has had no keyboard or mouse input, for routines with `clear idle` (`lib/away.sh`). Plain text: `format=1`, `sampled=<seconds since 1970>`, `idle=<seconds without input>`. While such a routine exists and `ioreg` is there, the status line starts `bytek away` in the background when the last check is 10 seconds old, after writing its stamp first so other renders don't start one too. `bytek away` reads `HIDIdleTime` from `ioreg` (it keeps counting while the screen is locked, and prompts sent from another device don't reset it), writes the file, and adds due or overdue `clear idle` occurrences to the cleared file as `idle`. Written with plain `printf`, no temp file, because the render path writes the stamp and starts no programs; a reader that catches it half-written sees no check and starts one more.
 
 ## Files in `$BYTEK_HOME`
 
@@ -134,6 +139,7 @@ The occurrences cleared with `bytek done <routine>` or `bytek skip <routine>`. P
 | `config/antenna-reminders-off` | the user | while it exists, hooks print no antenna reminder (`docs/mood-antenna.md`) |
 | `debug` | the user | while it exists, hooks append to `hooks.log` |
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
-| `cleared` | `bytek done`, `bytek skip` | the cleared reminders (above) |
+| `cleared` | `bytek done`, `bytek skip`, `bytek away` | the cleared reminders (above) |
+| `away` | the status line, `bytek away` | the last idle check (above) |
 | `config/` | the user, `bytek name` | personal settings: `routines` and `companions` (above), and later others (places); each feature documents its file here |
 | `cache/` | providers | cache files from background providers; none yet (`bounded-contexts.md`) |

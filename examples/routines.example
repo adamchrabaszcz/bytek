@@ -5,7 +5,7 @@
 # each followed by times (10:30, 15:00) or windows (19:00-20:00).
 # Options: months 4-10 (a season; 10-4 runs over New Year), disable, and for the reminders:
 # icon <name> (a companion in companions/: dog, meal, report, invoice), heads_up <10m, 1h, 1d>, overdue <20m> (how long it stays after its time; default 20m),
-# clear idle, action <name>.
+# clear idle [10m] (away from the Mac that long while it's due clears it; macOS), action <name>.
 
 stretch  = daily 10:30, 15:00                     | heads_up 5m                  | clear idle
 lunch    = daily 12:30                            | icon meal     | heads_up 10m | clear idle

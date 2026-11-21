@@ -2,7 +2,7 @@
 # shellcheck disable=SC2154 # S_<key> comes from lib/state.sh (state_load)
 # render: draws the status line from a session's state and its face file. This is the render
 # path: local files only, no jq, as few subprocesses as possible (50 ms budget).
-# Needs: clock, state, addon, routines, companions; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
+# Needs: clock, state, addon, routines, companions, away; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 RENDER_SPINNER="◜|◝|◞|◟"
 RENDER_REMINDER_ICON="◷"                       # before a routine's reminder when no companion stands in for it (companions/)
@@ -120,6 +120,20 @@ render_cut() {
   REPLY="${1:0:$(($2 - 1))}…"
 }
 
+# While a routine clears on idle (lib/away.sh), starts `bytek away` in the background when a
+# check is due: at most every AWAY_EVERY seconds, only where ioreg exists. The stamp goes first,
+# so the next renders don't start one too. Reads the routines and CLOCK_EPOCH; `command -v` and
+# the file read are builtins, so a render without a due check starts no program.
+render_away_check() {
+  local i
+  for ((i = 0; i < ROUTINES_COUNT; i++)); do
+    [ "${ROUTINES_AWAY[i]}" -gt 0 ] && break
+  done
+  [ "$i" -lt "$ROUTINES_COUNT" ] && command -v ioreg >/dev/null 2>&1 && away_due "$CLOCK_EPOCH" || return 0
+  away_write "$CLOCK_EPOCH" "$AWAY_IDLE" || return 0
+  "$BYTEK_ROOT/bin/bytek" away </dev/null >/dev/null 2>&1 &
+}
+
 # Prints the four lines of the status line for the session named in status line JSON $1.
 render_line() {
   local json=$1 session="default" now tick state_file face status detail thought max re
@@ -179,6 +193,7 @@ render_line() {
   local reminder="" text companion="" leash=""
   if [ -f "$ROUTINES_FILE" ]; then
     routines_load
+    render_away_check
     routines_reminder
     if [ -n "$ROUTINES_TEXT" ]; then
       text=$ROUTINES_TEXT

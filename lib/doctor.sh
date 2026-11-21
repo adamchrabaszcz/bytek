@@ -2,7 +2,7 @@
 # doctor: `bytek doctor` checks an installation and says what to fix, for people whose Bytek
 # doesn't show up and for bug reports. It reads settings.json only to see whether Bytek is in
 # it, and never prints anything from it (it can hold secrets).
-# Needs: settings (SETTINGS_CMD_RE), routines, companions; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
+# Needs: settings (SETTINGS_CMD_RE), routines, companions, away; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
 # BYTEK_UTF8, and $0 (the bytek it times).
 
 DOCTOR_BUDGET_MS=50 # the render budget (tests/speed.bats)
@@ -27,6 +27,7 @@ doctor_run() {
   doctor_state_folder
   doctor_routines
   doctor_companions
+  doctor_away
   doctor_render_time
   [ "$DOCTOR_PROBLEMS" -eq 0 ]
 }
@@ -154,4 +155,25 @@ doctor_companions() {
   done <"$COMPANIONS_NAMES"
   [ "$bad" = 0 ] && doctor_say ok "companion names: $n in $COMPANIONS_NAMES"
   return 0
+}
+
+# The away check (lib/away.sh), when a routine clears on idle: ioreg there, and the last check.
+doctor_away() {
+  local i
+  [ -f "$ROUTINES_FILE" ] || return 0
+  for ((i = 0; i < ROUTINES_COUNT; i++)); do
+    [ "${ROUTINES_AWAY[i]}" -gt 0 ] && break
+  done
+  [ "$i" -lt "$ROUTINES_COUNT" ] || return 0
+  if ! command -v ioreg >/dev/null 2>&1; then
+    doctor_say warning "clear idle needs macOS (ioreg): those routines clear only with bytek done" "remove clear idle, or use bytek done <routine>"
+    return 0
+  fi
+  away_load
+  if [ "$AWAY_SAMPLED" = 0 ]; then
+    doctor_say ok "away check: not run yet (the status line starts it every ${AWAY_EVERY}s)"
+  else
+    clock_now
+    doctor_say ok "away check: $((REPLY - AWAY_SAMPLED))s ago, idle ${AWAY_IDLE}s then"
+  fi
 }

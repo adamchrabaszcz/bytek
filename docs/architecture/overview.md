@@ -22,10 +22,11 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/routines.sh` | the user's routines: reads `config/routines`, works out when each happens next; `bytek done` and `skip` | clock |
 | `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | nothing |
 | `lib/companions.sh` | the names given to companions: reads `config/companions`, and `bytek name` | nothing |
-| `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders | clock, state, addon, routines, companions |
+| `lib/away.sh` | how long the Mac has had no input (ioreg), for routines with `clear idle`; `bytek away` | nothing |
+| `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders | clock, state, addon, routines, companions, away |
 | `lib/hooks.sh` | turns hook events into states; the antenna reminder; the debug log; following plugin updates | clock, state, addon |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
-| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines, companions |
+| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines, companions, away |
 
 The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq`, `original-statusline.jq` and `saved-statusline.jq` to settings.
 
