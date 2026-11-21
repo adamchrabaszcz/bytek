@@ -127,6 +127,7 @@ preview_run() {
     esac
     shift 2
   done
+  [ -z "$arg" ] || [ -n "$state" ] || die "--arg goes with --state (bytek preview --state reading --arg notes.txt)"
   [ -z "$state" ] || { [[ "$state" =~ ^[a-z-]+$ ]] && [ -f "$BYTEK_ROOT/faces/$state" ]; } ||
     die "unknown state: $state (see: bytek states)"
   [ -z "$addon" ] || { [[ "$addon" =~ ^[a-z-]+$ ]] && [ -f "$BYTEK_ROOT/addons/$addon" ]; } ||

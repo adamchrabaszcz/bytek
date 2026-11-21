@@ -91,7 +91,7 @@ setup() {
   local args
   for args in "--colour red" "--state dancing" "--state ../faces/idle" "--addon rocket" \
     "--routine dog:asleep" "--routine cat:due" "--routine dog" "--date 02-30" "--date tomorrow" \
-    "--time 25:00" "--state"; do
+    "--time 25:00" "--state" "--arg notes.txt" "--addon sun --arg notes.txt"; do
     # shellcheck disable=SC2086 # split into the options on purpose
     run "$BYTEK" preview $args
     assert_failure
