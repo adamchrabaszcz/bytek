@@ -448,10 +448,11 @@ routines_clear() {
   printf '%s at %02d:%02d: %s\n' "${name//_/ }" $((minute / 60)) $((minute % 60)) "$how"
 }
 
-# Clears, as idle, each "clear idle" routine whose occurrence has started (due or overdue) while
-# the Mac has had no input for $1 seconds, at least the routine's away time. Away during it means
-# it happened: out for the walk, at lunch. Needs routines_load and clock_fields. Returns 1 when
-# the cleared file can't be read (a newer Bytek's) or written.
+# Clears, as idle, each "clear idle" routine when the person has been away for its away time
+# since its occurrence started. The Mac has had no input for $1 seconds; only the part since the
+# start counts (stepping away just before lunch isn't lunch). Away during it means it happened:
+# out for the walk, at lunch. Needs routines_load and clock_fields. Returns 1 when the cleared
+# file can't be read (a newer Bytek's) or written.
 routines_clear_away() {
   local i now=$CLOCK_EPOCH start
   routines_cleared_load || return 1
@@ -459,7 +460,8 @@ routines_clear_away() {
     [ "${ROUTINES_AWAY[i]}" -gt 0 ] && [ "$1" -ge "${ROUTINES_AWAY[i]}" ] || continue
     routines_current "$i" "$now" || continue
     start=${REPLY% *}
-    [ "$now" -ge "$start" ] || continue
+    # Away since the start counts, not before it: min(idle, now - start) is long enough.
+    [ "$now" -ge "$start" ] && [ $((now - start)) -ge "${ROUTINES_AWAY[i]}" ] || continue
     routines_cleared_add "${ROUTINES_NAME[i]}" "$start" idle "$now" || return 1
   done
   return 0

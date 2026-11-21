@@ -293,3 +293,15 @@ reminder_at() {
   run cat "$BYTEK_HOME/cleared"
   assert_line --index 1 "walk $(at "2025-11-30 13:30") idle $(at "2025-11-30 13:45")"
 }
+
+@test "only the time away since the start counts: stepping away just before isn't the routine" {
+  config "lunch = daily 12:30 | clear idle"
+  # Away since 12:15, checked at 12:35: 20 minutes idle, but only 5 since lunch started.
+  clock_fields "$(at "2025-11-30 12:35")"
+  routines_clear_away 1200
+  assert_equal "$(reminder_at "2025-11-30 12:35")" "lunch 5m ago"
+  # Still away at 12:40: 10 minutes since the start.
+  clock_fields "$(at "2025-11-30 12:40")"
+  routines_clear_away 1500
+  assert_equal "$(reminder_at "2025-11-30 12:40")" ""
+}
