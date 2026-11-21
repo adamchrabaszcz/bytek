@@ -1,6 +1,6 @@
 ---
-description: Control Bytek, the status line companion (setup, uninstall, doctor, addon, name, done, skip, set, states, help)
-argument-hint: "[setup | uninstall | doctor | addon [name] | name [companion [Name]] | done <routine> | skip <routine> | set <state> [text] | states | help]"
+description: Control Bytek, the status line companion (setup, uninstall, doctor, preview, addon, name, done, skip, set, states, help)
+argument-hint: "[setup | uninstall | doctor | preview [--state S | --addon A | --routine dog:due] | addon [name] | name [companion [Name]] | done <routine> | skip <routine> | set <state> [text] | states | help]"
 ---
 
 Run this command with the Bash tool, exactly as written, with the user's arguments in place of `$ARGUMENTS` (use `help` when there are none):

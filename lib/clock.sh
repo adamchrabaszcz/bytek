@@ -36,6 +36,16 @@ clock_fields() {
   CLOCK_MIDNIGHT=$((CLOCK_EPOCH - 10#$hour * 3600 - 10#$minute * 60 - 10#$second))
 }
 
+# Sets REPLY to the moment (seconds since 1970) of local date $1 ("2026-12-06") at time $2
+# ("23:00"); returns 1 when date can't read them. Not for the render path: it starts `date`.
+clock_moment() {
+  case "$OSTYPE" in
+    darwin* | *bsd*) REPLY=$(date -j -f '%Y-%m-%d %H:%M:%S' "$1 $2:00" +%s 2>/dev/null) ;;
+    *) REPLY=$(date -d "$1 $2" +%s 2>/dev/null) ;;
+  esac
+  [[ "$REPLY" =~ ^[0-9]+$ ]]
+}
+
 # Sets REPLY to the number of days in month $2 of year $1.
 clock_days_in_month() {
   case $2 in

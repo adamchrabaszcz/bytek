@@ -44,3 +44,4 @@ No provider exists yet; the first one defines the cache file format in `data-fil
 | settings | | | write (backup first) | |
 | providers | | | | write |
 | `bytek set` | write | checks the state exists | | |
+| `bytek preview` | write, in a temp home of its own | read | | |
