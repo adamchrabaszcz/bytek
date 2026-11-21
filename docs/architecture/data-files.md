@@ -62,7 +62,7 @@ One per state, in the repository; the file name is the state's name (`bytek stat
 | `status` | the main text, right of the face | `editing` |
 | `detail` | the dimmed line below it | `{spin} {arg}` |
 
-In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the progress bar. Animation steps change once a second (the tick is the current second). Frames must be exactly 3 single-width characters; the alignment test renders every face in every frame (CONTRIBUTING, "Art rules").
+In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the progress bar. Animation steps change once a second (the tick is the current second). Frames must be exactly 3 single-width characters; `tests/alignment.bats` checks every frame and renders every face (CONTRIBUTING, "Art rules").
 
 ## Add-on file: `addons/<name>`
 

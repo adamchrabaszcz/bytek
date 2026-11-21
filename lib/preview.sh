@@ -62,7 +62,7 @@ preview_setup() {
 
 # Prints the status line for the temp home. The render runs in a subshell, since it sets
 # globals the next one must not see. When stdout isn't a terminal (/bytek preview runs through
-# Claude), the render's colour and bold codes are left out, so they don't show as junk.
+# Claude), the render's dim, bold and reset codes are left out, so they don't show as junk.
 preview_print() {
   local out code
   out=$(render_line '{}')
