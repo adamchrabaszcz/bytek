@@ -12,6 +12,7 @@ ROUTINES_HORIZON=366                        # days to look ahead for the next oc
 ROUTINES_CLEARED_FILE="$BYTEK_HOME/cleared" # occurrences cleared with done or skip
 ROUTINES_CLEARED_FORMAT=1                   # the newest cleared file format this version reads
 ROUTINES_CLEARED_KEEP=172800                # seconds a cleared occurrence is kept after its start: 2 days
+ROUTINES_AWAY_DEFAULT=600                   # seconds away from the Mac that clear a "clear idle" routine: 10 min
 
 # Sets REPLY to the minutes after midnight of "HH:MM" $1; returns 1 if it isn't a time.
 routines_minutes() {
@@ -107,9 +108,9 @@ routines_schedule() {
 # read are skipped and listed in ROUTINES_ERRORS ("line 3: reason"), so one broken line never
 # breaks the status line. A routine with the option "disable" is left out.
 routines_load() {
-  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled heads late icon
+  local file=${1:-$ROUTINES_FILE} line n=0 name rest field fields option options months disabled heads late icon away
   ROUTINES_NAME=() ROUTINES_KIND=() ROUTINES_DAYS=() ROUTINES_TIMES=() ROUTINES_MONTHS=() ROUTINES_OPTIONS=()
-  ROUTINES_HEADS=() ROUTINES_LATE=() ROUTINES_ICON=()
+  ROUTINES_HEADS=() ROUTINES_LATE=() ROUTINES_ICON=() ROUTINES_AWAY=()
   ROUTINES_COUNT=0 ROUTINES_ERRORS=""
   [ -f "$file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
@@ -142,7 +143,7 @@ routines_load() {
       ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: $REPLY"$'\n'
       continue
     fi
-    months="" disabled="" options="" heads=0 late=$ROUTINES_OVERDUE icon=""
+    months="" disabled="" options="" heads=0 late=$ROUTINES_OVERDUE icon="" away=0
     for field in "${fields[@]:1}"; do
       routines_trim "$field"
       option=$REPLY
@@ -154,6 +155,15 @@ routines_load() {
             ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: icon needs a name like dog or meal"$'\n'
             continue 2
           }
+          options="$options|$option"
+          ;;
+        clear\ idle | clear\ idle\ *)
+          away=$ROUTINES_AWAY_DEFAULT
+          if [ "$option" != "clear idle" ] && ! routines_seconds "${option#clear idle }"; then
+            ROUTINES_ERRORS="${ROUTINES_ERRORS}line $n: $name: clear idle takes a time like 10m, or nothing"$'\n'
+            continue 2
+          fi
+          [ "$option" = "clear idle" ] || away=$REPLY
           options="$options|$option"
           ;;
         heads_up\ * | overdue\ *)
@@ -187,6 +197,7 @@ routines_load() {
     ROUTINES_HEADS[ROUTINES_COUNT]=$heads
     ROUTINES_LATE[ROUTINES_COUNT]=$late
     ROUTINES_ICON[ROUTINES_COUNT]=$icon
+    ROUTINES_AWAY[ROUTINES_COUNT]=$away
     ROUTINES_COUNT=$((ROUTINES_COUNT + 1))
   done <"$file"
 }
@@ -391,12 +402,30 @@ routines_cleared_load() {
   return 0
 }
 
+# Adds routine $1's occurrence starting at $2, cleared with $3 (done, skip or idle) at moment $4,
+# to the cleared file, written whole (temp file and rename) and dropping entries that started
+# before ROUTINES_CLEARED_KEEP ago. Returns 1 when the file can't be written.
+routines_cleared_add() {
+  local line kept="" old=$(($4 - ROUTINES_CLEARED_KEEP)) tmp re='^[a-z][a-z0-9_]* ([0-9]+) '
+  if [ -f "$ROUTINES_CLEARED_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      [[ "$line" =~ $re ]] && [ "${BASH_REMATCH[1]}" -ge "$old" ] && kept="$kept$line"$'\n'
+    done <"$ROUTINES_CLEARED_FILE"
+  fi
+  mkdir -p "${ROUTINES_CLEARED_FILE%/*}" && tmp=$(mktemp "$ROUTINES_CLEARED_FILE.XXXXXX") || return 1
+  if ! { printf 'format=%s\n%s%s %s %s %s\n' "$ROUTINES_CLEARED_FORMAT" "$kept" "$1" "$2" "$3" "$4" >"$tmp" &&
+    mv "$tmp" "$ROUTINES_CLEARED_FILE"; }; then
+    rm -f "$tmp"
+    return 1
+  fi
+  ROUTINES_CLEARED="$ROUTINES_CLEARED$1@$2 "
+}
+
 # bytek done|skip <routine>: clears routine $2's occurrence with $1 (done or skip): the one its
-# reminder shows now, else the next one that starts today. Writes the cleared file whole (temp
-# file and rename), dropping entries older than ROUTINES_CLEARED_KEEP. Needs routines_load and
-# clock_fields; from bin/bytek: die.
+# reminder shows now, else the next one that starts today. Needs routines_load and clock_fields;
+# from bin/bytek: die.
 routines_clear() {
-  local how=$1 name=$2 i found="" now start minute line kept="" old tmp re='^[a-z][a-z0-9_]* ([0-9]+) '
+  local how=$1 name=$2 i found="" now start minute
   [ -n "$name" ] || die "usage: bytek $how <routine>"
   [[ "$name" != *" "* ]] || die "a routine's name is one word, as in the config: ${name// /_}"
   for ((i = 0; i < ROUTINES_COUNT; i++)); do
@@ -411,23 +440,29 @@ routines_clear() {
   if [ "$now" -lt $((start - ROUTINES_HEADS[found])) ] && [ "$start" -ge $((CLOCK_MIDNIGHT + 86400)) ]; then
     die "no $name left today to clear"
   fi
-  # Keeps the other entries that are recent enough.
-  old=$((now - ROUTINES_CLEARED_KEEP))
-  if [ -f "$ROUTINES_CLEARED_FILE" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-      [[ "$line" =~ $re ]] && [ "${BASH_REMATCH[1]}" -ge "$old" ] && kept="$kept$line"$'\n'
-    done <"$ROUTINES_CLEARED_FILE"
-  fi
-  mkdir -p "${ROUTINES_CLEARED_FILE%/*}" || die "cannot create ${ROUTINES_CLEARED_FILE%/*}"
-  tmp=$(mktemp "$ROUTINES_CLEARED_FILE.XXXXXX") || die "cannot write $ROUTINES_CLEARED_FILE"
-  if ! { printf 'format=%s\n%s%s %s %s %s\n' "$ROUTINES_CLEARED_FORMAT" "$kept" "$name" "$start" "$how" "$now" >"$tmp" &&
-    mv "$tmp" "$ROUTINES_CLEARED_FILE"; }; then
-    rm -f "$tmp"
-    die "cannot write $ROUTINES_CLEARED_FILE"
-  fi
+  routines_cleared_add "$name" "$start" "$how" "$now" || die "cannot write $ROUTINES_CLEARED_FILE"
   minute=$(((start - CLOCK_MIDNIGHT) / 60))
   # A heads-up can show for tomorrow (heads_up 1d): its time of day, not minutes past today.
   minute=$(((minute % 1440 + 1440) % 1440))
   [ "$how" = skip ] && how=skipped
   printf '%s at %02d:%02d: %s\n' "${name//_/ }" $((minute / 60)) $((minute % 60)) "$how"
+}
+
+# Clears, as idle, each "clear idle" routine when the person has been away for its away time
+# since its occurrence started. The Mac has had no input for $1 seconds; only the part since the
+# start counts (stepping away just before lunch isn't lunch). Away during it means it happened:
+# out for the walk, at lunch. Needs routines_load and clock_fields. Returns 1 when the cleared
+# file can't be read (a newer Bytek's) or written.
+routines_clear_away() {
+  local i now=$CLOCK_EPOCH start
+  routines_cleared_load || return 1
+  for ((i = 0; i < ROUTINES_COUNT; i++)); do
+    [ "${ROUTINES_AWAY[i]}" -gt 0 ] && [ "$1" -ge "${ROUTINES_AWAY[i]}" ] || continue
+    routines_current "$i" "$now" || continue
+    start=${REPLY% *}
+    # Away since the start counts, not before it: min(idle, now - start) is long enough.
+    [ "$now" -ge "$start" ] && [ $((now - start)) -ge "${ROUTINES_AWAY[i]}" ] || continue
+    routines_cleared_add "${ROUTINES_NAME[i]}" "$start" idle "$now" || return 1
+  done
+  return 0
 }

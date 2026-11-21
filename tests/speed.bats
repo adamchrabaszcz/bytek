@@ -23,6 +23,9 @@ setup() {
   # 30 Nov 2025, 19:30 UTC, when the example's walk is due with the dog on its leash (the most
   # expensive reminder to draw) and the other routines are worked out too.
   export TZ=UTC BYTEK_NOW=1764531000
+  # A check of the Mac's idle time just ran (lib/away.sh), so no render starts one in the
+  # background: that runs every 10 s, apart from the render.
+  printf 'format=1\nsampled=%s\nidle=0\n' "$BYTEK_NOW" >"$BYTEK_HOME/away"
 }
 
 # Writes a stand-in to $1 for every program on PATH, the first of each name, that notes its name
