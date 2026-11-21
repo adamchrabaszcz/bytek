@@ -16,7 +16,7 @@ Where things are written down:
 1. Find or open an issue for the change (format below).
 2. Branch from the latest `main`: `<type>/<short-topic>`, e.g. `feat/rain-outfit`, `fix/antenna-column`.
 3. Make the change, keeping it focused on one thing, with its tests.
-4. Run the checks (below) and look at the result in a real terminal (`bytek set <state>`, later `/bytek preview`).
+4. Run the checks (below) and look at the result in a real terminal (`bin/bytek preview` shows every state, add-on and routine stage; `--state`, `--addon` or `--routine dog:due` show one).
 5. Open a pull request into `main`. CI must be green before merging. The code owners (`.github/CODEOWNERS`) are asked for review automatically.
 6. Pull requests are squash merged: `main` gets one commit per pull request, with the pull request's title as its subject and its description as the body. That's why the title must be a Conventional Commit (it decides the release) and the description ends with `Closes #<issue>`. Commits inside a branch can be anything; nobody sees them after the merge.
 

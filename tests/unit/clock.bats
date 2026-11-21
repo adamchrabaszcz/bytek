@@ -42,6 +42,15 @@ setup() {
     "1764500400 2025-11-30 7 1764460800"
 }
 
+@test "a local date and time read as a moment" {
+  TZ=UTC clock_moment 2026-12-06 23:00
+  assert_equal "$REPLY" 1796598000
+  TZ=Europe/Warsaw clock_moment 2026-12-06 23:00
+  assert_equal "$REPLY" 1796594400
+  run clock_moment 2026-12-06 noon
+  assert_failure
+}
+
 @test "days in a month, leap years included" {
   local y m expected
   for expected in "2026 2 28" "2028 2 29" "2100 2 28" "2000 2 29" "2026 4 30" "2026 12 31"; do

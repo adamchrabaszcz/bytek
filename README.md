@@ -45,6 +45,8 @@ This copies Bytek to `~/.claude/bytek/app` and adds the status line and hooks to
 
 `bytek doctor` (or `/bytek doctor` in Claude Code) checks the setup: jq, the locale, whether the status line and the hooks run Bytek, the state folder and how long a render takes. Each line says `ok`, `warning` or `problem`, with what to do; it shows nothing from your settings. Paste its output into a bug report.
 
+`bytek preview` (or `/bytek preview`) shows every look Bytek has, without waiting for it to happen: each state, each mood antenna and each companion's routine stages. With `--state editing`, `--addon sun` or `--routine dog:due` it shows one; `--name Rex`, `--time 23:00`, `--date 12-06` and `--width 60` change the rest. It never touches your own state or routines.
+
 ## Uninstall
 
 - Plugin: `/bytek uninstall`, then `/plugin uninstall bytek@bytek`.

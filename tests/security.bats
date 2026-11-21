@@ -109,3 +109,12 @@ refute_controls() {
   assert_output --partial "routines, line 1"
   refute_controls "$output"
 }
+
+@test "escape sequences in bytek preview's text and name don't reach the terminal" {
+  run "$BYTEK" preview --state waiting --arg $'allow \033]0;pwned\007 this?\033[2J'
+  assert_success
+  refute_controls "$output"
+  run "$BYTEK" preview --routine dog:overdue --name $'R\033[31mex\302\233'
+  assert_success
+  refute_controls "$output"
+}
