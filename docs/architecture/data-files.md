@@ -66,7 +66,7 @@ In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the 
 
 ## ASCII lines in data files
 
-Face, add-on and companion files can give any key a second line for the ascii charset (`bytek charset ascii`, below): the key with `_ascii` added, in plain ASCII, such as `frames_ascii: o_o|-_-` under `frames: •ᴗ•|-ᴗ-`. In the ascii charset it wins over the plain line, before or after it; in unicode it is skipped. A key without one shows its plain value in both. Every key whose value isn't plain ASCII has one, with the same lengths (`tests/alignment.bats`). Older versions skip keys they don't know, so these lines need no new format version.
+Face, add-on and companion files can give any key a second line for the ascii charset (`bytek charset ascii`, below): the key with `_ascii` added, in plain ASCII, such as `frames_ascii: o_o|-_-` under `frames: •ᴗ•|-ᴗ-`. In the ascii charset it wins over the plain line, before or after it; in unicode it is skipped. A key without one shows its plain value in both. Every key whose value isn't plain ASCII has one, with the same lengths (`tests/alignment.bats`). Older versions skip keys they don't know, so these lines need no new format version. Why it works this way: `docs/adr/0011-ascii-charset-keys.md`.
 
 ## Add-on file: `addons/<name>`
 

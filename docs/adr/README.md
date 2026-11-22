@@ -36,3 +36,4 @@ What becomes easier, what becomes harder, what we now have to keep doing.
 - [0008. Files that outlive a version carry a format version](0008-versioned-file-formats.md)
 - [0009. Hooks remind Claude of the mood antenna](0009-antenna-reminders.md)
 - [0010. Bytek edits settings.json itself, including one permission](0010-bytek-edits-settings-json.md)
+- [0011. An ASCII charset from `_ascii` lines in the data files, switched in config/bytek](0011-ascii-charset-keys.md)
