@@ -60,12 +60,17 @@ preview_setup() {
   printf '%s = daily %02d:%02d | icon %s | heads_up 10m\n' "$REPLY" $((at / 60)) $((at % 60)) "$companion" >"$ROUTINES_FILE"
 }
 
-# Prints the status line for the temp home. The render runs in a subshell, since it sets
-# globals the next one must not see. When stdout isn't a terminal (/bytek preview runs through
-# Claude), the render's dim, bold and reset codes are left out, so they don't show as junk.
+# Prints the status line for the temp home, in PREVIEW_LAYOUT: the box, or the one line cut to
+# COLUMNS. The render runs in a subshell, since it sets globals the next one must not see.
+# When stdout isn't a terminal (/bytek preview runs through Claude), the render's dim, bold and
+# reset codes are left out, so they don't show as junk.
 preview_print() {
   local out code
-  out=$(render_line '{}')
+  if [ "$PREVIEW_LAYOUT" = line ]; then
+    out=$(render_oneline '{}' "$COLUMNS")
+  else
+    out=$(render_line '{}')
+  fi
   if [ ! -t 1 ]; then
     for code in 0m 1m 2m 22m; do out=${out//$'\033['$code/}; done
   fi
@@ -109,9 +114,10 @@ preview_time() {
 }
 
 # bytek preview [--state S] [--arg TEXT] [--addon A] [--routine COMPANION:STAGE] [--name NAME]
-#               [--time HH:MM] [--date MM-DD] [--width N] [--charset unicode|ascii]
+#               [--time HH:MM] [--date MM-DD] [--width N] [--charset unicode|ascii] [--layout box|line]
 preview_run() {
   local state="" arg="" addon="" routine="" name="" time="" date="" width="" charset="" f s companion one=""
+  PREVIEW_LAYOUT=box
   while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || die "$1 needs a value (see: bytek help)"
     case "$1" in
@@ -124,6 +130,7 @@ preview_run() {
       --date) date=$2 ;;
       --width) width=$2 ;;
       --charset) charset=$2 ;;
+      --layout) PREVIEW_LAYOUT=$2 ;;
       *) die "unknown option: $1 (see: bytek help)" ;;
     esac
     shift 2
@@ -133,6 +140,10 @@ preview_run() {
     die "unknown state: $state (see: bytek states)"
   [ -z "$addon" ] || { [[ "$addon" =~ ^[a-z-]+$ ]] && [ -f "$BYTEK_ROOT/addons/$addon" ]; } ||
     die "unknown add-on: $addon (see: bytek addon)"
+  case "$PREVIEW_LAYOUT" in
+    box | line) ;;
+    *) die "unknown layout: $PREVIEW_LAYOUT (box or line)" ;;
+  esac
   if [ -n "$routine" ]; then
     companion=${routine%%:*}
     [[ "$routine" =~ ^[a-z-]+:(heads_up|due|overdue)$ ]] && [ -f "$BYTEK_ROOT/companions/$companion" ] ||
@@ -164,7 +175,8 @@ preview_run() {
     preview_arg "$s"
     preview_show "$s" "$REPLY" "$ADDON_DEFAULT" "" "state: $s"
   done
-  for f in "$BYTEK_ROOT"/addons/*; do
+  # The one line has no antenna: its add-ons would all look the same.
+  [ "$PREVIEW_LAYOUT" = line ] || for f in "$BYTEK_ROOT"/addons/*; do
     preview_show idle "" "${f##*/}" "" "add-on: ${f##*/}"
   done
   for f in "$BYTEK_ROOT"/companions/*; do

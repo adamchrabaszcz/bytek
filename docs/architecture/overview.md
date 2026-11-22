@@ -24,10 +24,10 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | charset |
 | `lib/companions.sh` | the names given to companions: reads `config/companions`, and `bytek name` | nothing |
 | `lib/away.sh` | how long the Mac has had no input (ioreg), for routines with `clear idle`; `bytek away` | nothing |
-| `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders, the ascii charset's glyphs | clock, state, charset, addon, routines, companions, away |
+| `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders, the ascii charset's glyphs; the box and the one-line layout from the same state | clock, state, charset, addon, routines, companions, away |
 | `lib/hooks.sh` | turns hook events into states; the antenna reminder; the debug log; following plugin updates | clock, state, addon |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
-| `lib/preview.sh` | `bytek preview`: every state, add-on and routine stage, rendered into a temp home of its own | clock, state, charset, addon, routines, companions, render |
+| `lib/preview.sh` | `bytek preview`: every state, add-on and routine stage, as the box or on one line, rendered into a temp home of its own | clock, state, charset, addon, routines, companions, render |
 | `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines, companions, away, charset |
 
 The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq`, `original-statusline.jq` and `saved-statusline.jq` to settings.

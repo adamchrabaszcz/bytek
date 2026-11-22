@@ -167,9 +167,12 @@ render_away_check() {
   "$BYTEK_ROOT/bin/bytek" away </dev/null >/dev/null 2>&1 &
 }
 
-# Prints the four lines of the status line for the session named in status line JSON $1.
-render_line() {
-  local json=$1 session="default" now tick state_file face status detail thought max re
+# Works out what Bytek shows for the session named in status line JSON $1, for every layout:
+# R_tick, R_frame, R_thought, R_status, R_detail, R_reminder (the routine's part at the start of
+# R_status), R_overdue (1 when that reminder is overdue), R_companion and R_leash (1 when the
+# companion is on a leash). The texts are whole: each layout cuts them to its own width.
+render_state() {
+  local json=$1 session="default" now state_file face re
   re='"session_id"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_-]+)"'
   [[ "$json" =~ $re ]] && session=${BASH_REMATCH[1]}
 
@@ -181,7 +184,7 @@ render_line() {
     clock_now
     now=$REPLY
   fi
-  tick=$now
+  R_tick=$now
 
   charset_load
   [ "$CHARSET" = ascii ] && render_ascii
@@ -204,29 +207,30 @@ render_line() {
     render_face "$BYTEK_ROOT/faces/idle"
   fi
 
-  render_pick "$F_frames" "$tick"
-  local frame=$REPLY
-  render_pick "$F_thought" "$tick"
-  thought=$REPLY
-  status=${S_status:-$F_status}
+  render_pick "$F_frames" "$R_tick"
+  R_frame=$REPLY
+  render_pick "$F_thought" "$R_tick"
+  R_thought=$REPLY
+  R_status=${S_status:-$F_status}
 
-  detail=${S_detail:-$F_detail}
-  case "$detail" in *'{spin}'*)
-    render_pick "$RENDER_SPINNER" "$tick"
-    detail=${detail//\{spin\}/"$REPLY"} # quoted: the ascii spinner has a "\"
+  R_detail=${S_detail:-$F_detail}
+  case "$R_detail" in *'{spin}'*)
+    render_pick "$RENDER_SPINNER" "$R_tick"
+    R_detail=${R_detail//\{spin\}/"$REPLY"} # quoted: the ascii spinner has a "\"
     ;;
   esac
-  case "$detail" in *'{progress}'*)
-    render_bar "$S_progress" "$tick"
-    detail=${detail//\{progress\}/$REPLY}
+  case "$R_detail" in *'{progress}'*)
+    render_bar "$S_progress" "$R_tick"
+    R_detail=${R_detail//\{progress\}/$REPLY}
     ;;
   esac
-  detail=${detail//\{arg\}/$S_arg}
+  R_detail=${R_detail//\{arg\}/$S_arg}
 
   # A routine's reminder (lib/routines.sh) goes first in the status, what Claude does after it.
-  # With a companion (companions/<icon>), the companion stands next to Bytek at the start of the
-  # detail row, and while due it may bring its own text, face, thought and a leash to the box.
-  local reminder="" text companion="" leash=""
+  # With a companion (companions/<icon>), the companion stands next to Bytek, and while due it
+  # may bring its own text, face, thought and a leash.
+  local text
+  R_reminder="" R_overdue="" R_companion="" R_leash=""
   if [ -f "$ROUTINES_FILE" ]; then
     routines_load
     render_away_check
@@ -235,21 +239,21 @@ render_line() {
       text=$ROUTINES_TEXT
       if [ -n "$ROUTINES_SHOWN_ICON" ] && render_companion "$BYTEK_ROOT/companions/$ROUTINES_SHOWN_ICON"; then
         case "$ROUTINES_STAGE" in
-          heads_up) companion=$C_icon ;;
+          heads_up) R_companion=$C_icon ;;
           due)
-            render_pick_padded "$C_due" "$tick"
-            companion=$REPLY
+            render_pick_padded "$C_due" "$R_tick"
+            R_companion=$REPLY
             [ -n "$C_due_text" ] && text=$C_due_text
             if [ -n "$C_due_face" ]; then
-              render_pick "$C_due_face" "$tick"
-              frame=$REPLY
+              render_pick "$C_due_face" "$R_tick"
+              R_frame=$REPLY
             fi
-            [ -n "$C_due_thought" ] && thought=$C_due_thought
-            [ "$C_leash" = yes ] && [ -n "$companion" ] && leash=1
+            [ -n "$C_due_thought" ] && R_thought=$C_due_thought
+            [ "$C_leash" = yes ] && [ -n "$R_companion" ] && R_leash=1
             ;;
           overdue)
-            render_pick_padded "$C_overdue" "$tick"
-            companion=$REPLY
+            render_pick_padded "$C_overdue" "$R_tick"
+            R_companion=$REPLY
             [ -n "$C_overdue_text" ] && text=$C_overdue_text
             ;;
         esac
@@ -268,35 +272,48 @@ render_line() {
         text=${text//\{in\}/$ROUTINES_SHOWN_WHEN}
         text=${text//\{routine\}/${ROUTINES_SHOWN_NAME//_/ }}
         # A companion file may leave a stage out: then that stage keeps the ◷.
-        if [ -n "$companion" ]; then reminder=$text; else reminder="$RENDER_REMINDER_ICON $text"; fi
+        if [ -n "$R_companion" ]; then R_reminder=$text; else R_reminder="$RENDER_REMINDER_ICON $text"; fi
       else
-        reminder="$RENDER_REMINDER_ICON $text"
+        R_reminder="$RENDER_REMINDER_ICON $text"
       fi
-      [ "$ROUTINES_MORE" -gt 0 ] && reminder="$reminder +$ROUTINES_MORE"
-      status="$reminder${status:+$RENDER_SEP$status}"
+      [ "$ROUTINES_MORE" -gt 0 ] && R_reminder="$R_reminder +$ROUTINES_MORE"
+      [ "$ROUTINES_STAGE" = overdue ] && R_overdue=1
+      R_status="$R_reminder${R_status:+$RENDER_SEP$R_status}"
     fi
   fi
 
   if [ "$CHARSET" = ascii ]; then
-    render_ascii_text "$status"
-    status=$REPLY
-    render_ascii_text "$detail"
-    detail=$REPLY
-    render_ascii_text "$reminder"
-    reminder=$REPLY
+    render_ascii_text "$R_status"
+    R_status=$REPLY
+    render_ascii_text "$R_detail"
+    R_detail=$REPLY
+    render_ascii_text "$R_reminder"
+    R_reminder=$REPLY
   fi
+}
+
+# Sets REPLY to status $1, cut already, with an overdue reminder (render_state) in bold: the
+# codes go in after cutting, so they don't count as characters.
+render_bold_overdue() {
+  REPLY=$1
+  if [ -n "$R_overdue" ] && [ -n "$R_reminder" ] && [[ "$1" == "$R_reminder"* ]]; then
+    REPLY=$'\033[1m'"$R_reminder"$'\033[22m'"${1#"$R_reminder"}"
+  fi
+}
+
+# Prints the four lines of the status line for the session named in status line JSON $1.
+render_line() {
+  local status detail max
+  render_state "$1"
 
   # The bot and its gaps take 10 columns; keep the text inside the terminal. Cutting from the
   # right shortens the work status first, so the reminder stays readable; the leash takes a
   # column from the status row, the companion its width from the detail row.
   if [ -n "$COLUMNS" ] && [ "$COLUMNS" -gt 12 ] 2>/dev/null; then max=$((COLUMNS - 12)); fi
-  render_cut "$status" "${max:+$((max - ${leash:-0}))}"
+  render_cut "$R_status" "${max:+$((max - ${R_leash:-0}))}"
+  render_bold_overdue "$REPLY"
   status=$REPLY
-  # An overdue reminder in bold, added after cutting so the codes don't count as characters.
-  if [ "$ROUTINES_STAGE" = overdue ] && [ -n "$reminder" ] && [[ "$status" == "$reminder"* ]]; then
-    status=$'\033[1m'"$reminder"$'\033[22m'"${status#"$reminder"}"
-  fi
-  render_cut "$detail" "${max:+$((max - ${#companion}))}"
+  render_cut "$R_detail" "${max:+$((max - ${#R_companion}))}"
   detail=$REPLY
 
   # Claude Code trims the leading whitespace of each line, which would take the antenna's indent
@@ -304,18 +321,43 @@ render_line() {
   # it is, so the antenna stays above its stick.
   # The mood antenna (lib/addon.sh) sits on the stick, animated by the same tick.
   addon_load
-  render_pick "$ADDON_FRAMES" "$tick"
-  printf '\033[0m    %s%s\n' "$REPLY" "${thought:+ $thought}"
+  render_pick "$ADDON_FRAMES" "$R_tick"
+  printf '\033[0m    %s%s\n' "$REPLY" "${R_thought:+ $R_thought}"
   printf '\033[0m%s\n' "$RENDER_TOP"
-  if [ -n "$leash" ]; then
+  if [ -n "$R_leash" ]; then
     # The companion on a leash: ╮ on the box's right edge, ╰ leading down to it.
-    printf '\033[0m %s %s %s%s  %s\n' "$RENDER_SIDE" "$frame" "$RENDER_SIDE" "$RENDER_LEASH_TOP" "$status"
-    printf '\033[0m%s%s%s \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$RENDER_LEASH_BOTTOM" "$companion" "$detail"
-  elif [ -n "$companion" ]; then
-    printf '\033[0m %s %s %s  %s\n' "$RENDER_SIDE" "$frame" "$RENDER_SIDE" "$status"
-    printf '\033[0m%s %s \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$companion" "$detail"
+    printf '\033[0m %s %s %s%s  %s\n' "$RENDER_SIDE" "$R_frame" "$RENDER_SIDE" "$RENDER_LEASH_TOP" "$status"
+    printf '\033[0m%s%s%s \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$RENDER_LEASH_BOTTOM" "$R_companion" "$detail"
+  elif [ -n "$R_companion" ]; then
+    printf '\033[0m %s %s %s  %s\n' "$RENDER_SIDE" "$R_frame" "$RENDER_SIDE" "$status"
+    printf '\033[0m%s %s \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$R_companion" "$detail"
   else
-    printf '\033[0m %s %s %s  %s\n' "$RENDER_SIDE" "$frame" "$RENDER_SIDE" "$status"
+    printf '\033[0m %s %s %s  %s\n' "$RENDER_SIDE" "$R_frame" "$RENDER_SIDE" "$status"
     printf '\033[0m%s  \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$detail"
   fi
+}
+
+# Prints Bytek on one line for the session named in status line JSON $1: the face, the
+# companion when one is out, the status and, after RENDER_SEP, the detail; no box, antenna or
+# thought. Cut to $2 characters when given, the detail first. With $3 "plain", without the dim
+# and bold codes, for apps that show the text as it is (a Touch Bar app).
+render_oneline() {
+  local head text status rest dim="" off=""
+  render_state "$1"
+  head="($R_frame)"
+  if [ -n "$R_companion" ]; then
+    text=$R_companion
+    while [[ "$text" == *" " ]]; do text=${text% }; done # the padding to its widest frame
+    head="$head $text"
+  fi
+  text="$R_status${R_detail:+$RENDER_SEP$R_detail}"
+  while [[ "$text" == *" " ]]; do text=${text% }; done # a spinner without its {arg}
+  render_cut "$text" "${2:+$(($2 - ${#head} - 1))}"
+  # The status is the first part of the cut text, the separator and detail the rest.
+  status=${REPLY:0:${#R_status}} rest=${REPLY:${#R_status}}
+  if [ "$3" != plain ]; then
+    render_bold_overdue "$status"
+    status=$REPLY dim=$'\033[2m' off=$'\033[0m'
+  fi
+  printf '%s%s%s\n' "$head" "${status:+ $status}" "${rest:+$dim$rest$off}"
 }

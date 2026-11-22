@@ -9,7 +9,7 @@
 #   bytek states                     list available states
 #   bytek preview [opts]             every state, add-on and routine stage; with an option, one look
 #        --state S --arg TEXT --addon A --routine COMPANION:STAGE (dog:due) --name NAME
-#        --time HH:MM --date MM-DD --width N --charset unicode|ascii
+#        --time HH:MM --date MM-DD --width N --charset unicode|ascii --layout box|line
 #   bytek addon [name]               set the mood antenna; without a name, list them
 #   bytek charset [unicode|ascii]    draw with plain ASCII, for terminals that show ♡ ᴗ ╭ wide
 #   bytek name [companion [Name]]    name a companion (bytek name dog Rex); without a name, remove it
