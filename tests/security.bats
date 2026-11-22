@@ -118,3 +118,11 @@ refute_controls() {
   assert_success
   refute_controls "$output"
 }
+
+@test "escape sequences in a session's text don't reach bytek line" {
+  "$BYTEK" set waiting $'allow \033]0;pwned\007 this?\033[2J' --status $'needs \302\233you'
+  run "$BYTEK" line
+  assert_success
+  refute_controls "$output"
+  [[ "$output" != *$'\033'* ]] || fail "a code in plain output: $output"
+}

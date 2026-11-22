@@ -86,6 +86,22 @@ state_clear_edits() {
   rm -f "$1.edits"
 }
 
+# Sets REPLY to the session in state folder $1 whose state changed last, or "default" when
+# there is none. Only names a session can have count (edit lists, temp files and dotfiles
+# don't); `-nt` is a builtin, so no program starts.
+state_latest() {
+  local f name latest=""
+  REPLY=default
+  for f in "$1"/*; do
+    name=${f##*/}
+    [[ "$name" =~ ^[A-Za-z0-9_-]+$ ]] && [ -f "$f" ] || continue
+    if [ -z "$latest" ] || [ "$f" -nt "$latest" ]; then
+      latest=$f
+      REPLY=$name
+    fi
+  done
+}
+
 # Switches to a new state and clears the previous state's text.
 # Usage: state_to <state> [arg] [status] [detail]
 state_to() { S_state=$1 S_arg=$2 S_status=$3 S_detail=$4 S_progress=""; }

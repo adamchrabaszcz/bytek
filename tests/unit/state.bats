@@ -93,3 +93,23 @@ setup() {
     assert_equal "$S_state|$S_arg|$STATE_NEWER" "idle||1"
   done
 }
+
+@test "the latest session is the one whose state changed last; edit lists and temp files don't count" {
+  state_latest "$TMP/none"
+  assert_equal "$REPLY" default
+  mkdir -p "$TMP/state"
+  state_latest "$TMP/state"
+  assert_equal "$REPLY" default
+  printf 'format=1\n' >"$TMP/state/abc-1"
+  printf 'format=1\n' >"$TMP/state/def_2"
+  printf 'x\n' >"$TMP/state/abc-1.edits"
+  printf 'x\n' >"$TMP/state/.tmp.XYZ"
+  touch -t 202601010000 "$TMP/state/def_2"
+  touch -t 202601020000 "$TMP/state/abc-1"
+  touch -t 202601030000 "$TMP/state/abc-1.edits" "$TMP/state/.tmp.XYZ"
+  state_latest "$TMP/state"
+  assert_equal "$REPLY" abc-1
+  touch -t 202601040000 "$TMP/state/def_2"
+  state_latest "$TMP/state"
+  assert_equal "$REPLY" def_2
+}

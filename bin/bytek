@@ -2,6 +2,9 @@
 # Bytek: a tiny ASCII companion for the Claude Code status line.
 #
 #   bytek render                     status line entry point (status line JSON on stdin)
+#   bytek line [--session ID] [--width N]
+#                                    Bytek on one plain line, for Touch Bar apps (docs/touch-bar.md);
+#                                    the session that changed last unless one is given
 #   bytek set <state> [arg] [opts]   write a state by hand (testing, demos)
 #        --status TEXT    main status text instead of the state's default
 #        --progress N/M   progress for states that show a bar
@@ -59,6 +62,32 @@ cmd_render() {
   fi
 }
 
+# bytek line: the one-line layout without codes, for apps that show a command's output as it is
+# (a Touch Bar app runs it every second or two). Like the status line, never empty.
+cmd_line() {
+  local session="" width="" out
+  while [ $# -gt 0 ]; do
+    [ $# -ge 2 ] || die "$1 needs a value (see: bytek help)"
+    case "$1" in
+      --session) session=$2 ;;
+      --width) width=$2 ;;
+      *) die "unknown option: $1 (see: bytek help)" ;;
+    esac
+    shift 2
+  done
+  [ -z "$session" ] || [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid session id: $session"
+  [ -z "$width" ] || { [[ "$width" =~ ^[0-9]+$ ]] && [ "$width" -ge 10 ]; } || die "not a width: $width (10 or more characters)"
+  if [ -z "$session" ]; then
+    state_latest "$BYTEK_HOME/state"
+    session=$REPLY
+  fi
+  if out=$(render_oneline "{\"session_id\":\"$session\"}" "$width" plain 2>/dev/null) && [ -n "$out" ]; then
+    printf '%s\n' "$out"
+  else
+    printf '(•ᴗ•) bytek\n'
+  fi
+}
+
 cmd_set() {
   local session="default"
   [ -n "$1" ] || die "usage: bytek set <state> [arg] [--status TEXT] [--progress N/M] [--session ID]"
@@ -106,7 +135,7 @@ cmd_states() {
   for f in "$BYTEK_ROOT"/faces/*; do printf '%s\n' "${f##*/}"; done
 }
 
-usage() { sed -n '2,25s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,28s/^# \{0,1\}//p' "$0"; }
 
 case "${1:-}" in
   render)
@@ -127,6 +156,26 @@ case "${1:-}" in
     # shellcheck source=lib/render.sh
     . "$BYTEK_LIB/render.sh"
     cmd_render
+    ;;
+  line)
+    shift
+    # shellcheck source=lib/clock.sh
+    . "$BYTEK_LIB/clock.sh"
+    # shellcheck source=lib/state.sh
+    . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/charset.sh
+    . "$BYTEK_LIB/charset.sh"
+    # shellcheck source=lib/addon.sh
+    . "$BYTEK_LIB/addon.sh"
+    # shellcheck source=lib/routines.sh
+    . "$BYTEK_LIB/routines.sh"
+    # shellcheck source=lib/companions.sh
+    . "$BYTEK_LIB/companions.sh"
+    # shellcheck source=lib/away.sh
+    . "$BYTEK_LIB/away.sh"
+    # shellcheck source=lib/render.sh
+    . "$BYTEK_LIB/render.sh"
+    cmd_line "$@"
     ;;
   away)
     # shellcheck source=lib/clock.sh

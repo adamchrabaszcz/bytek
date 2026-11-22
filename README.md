@@ -45,7 +45,7 @@ This copies Bytek to `~/.claude/bytek/app` and adds the status line and hooks to
 
 `bytek doctor` (or `/bytek doctor` in Claude Code) checks the setup: jq, the locale, whether the status line and the hooks run Bytek, the state folder and how long a render takes. Each line says `ok`, `warning` or `problem`, with what to do; it shows nothing from your settings. Paste its output into a bug report.
 
-`bytek preview` (or `/bytek preview`) shows every look Bytek has, without waiting for it to happen: each state, each mood antenna and each companion's routine stages. With `--state editing`, `--addon sun` or `--routine dog:due` it shows one; `--name Rex`, `--time 23:00`, `--date 12-06`, `--width 60` and `--charset ascii` change the rest. `--layout line` shows Bytek on one line instead of the box, the way narrow windows and Touch Bar apps will show it. It never touches your own state or routines.
+`bytek preview` (or `/bytek preview`) shows every look Bytek has, without waiting for it to happen: each state, each mood antenna and each companion's routine stages. With `--state editing`, `--addon sun` or `--routine dog:due` it shows one; `--name Rex`, `--time 23:00`, `--date 12-06`, `--width 60` and `--charset ascii` change the rest. `--layout line` shows Bytek on one line instead of the box, the way `bytek line` prints it for a Touch Bar app (`docs/touch-bar.md`). It never touches your own state or routines.
 
 If the box looks broken (lines out of place, `♡` or `ᴗ` taking two columns), your terminal shows "ambiguous-width" characters wide, often an East Asian setting. `bytek charset ascii` (or `/bytek charset ascii`) makes Bytek draw with plain ASCII from the next refresh; `bytek charset unicode` switches back.
 
@@ -55,6 +55,10 @@ If the box looks broken (lines out of place, `♡` or `ᴗ` taking two columns),
  | o_o |  editing 3 files
  '-+-+-'  / api.ts
 ```
+
+## Touch Bar
+
+`bytek line` prints Bytek on one plain line, `(≧ᴗ≦) editing · ◜ api.ts`, for a Touch Bar app such as MTMR to show and refresh. `docs/touch-bar.md` has the button to paste.
 
 ## Uninstall
 
