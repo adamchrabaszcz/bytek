@@ -58,6 +58,20 @@ setup() {
   assert_equal "$("$BYTEK" charset)" unicode
 }
 
+@test "the one-line layout: each look on one line, cut to the width, the add-ons left out" {
+  local labels
+  run "$BYTEK" preview --layout line
+  assert_success
+  refute_output --partial "╭──┴──╮"
+  refute_output --partial "add-on: "
+  labels=$(grep -cE '^(state|routine): ' <<<"$output")
+  assert_equal "$(grep -c '^(' <<<"$output")" "$labels"
+  run "$BYTEK" preview --layout line --state waiting --width 30
+  assert_output "(◕ᴗ◕) needs you · Bash: tools…"
+  run "$BYTEK" preview --layout line --routine dog:due --charset ascii
+  assert_output "(^_^) (^.^)~ walk time! - ready - waiting for a task"
+}
+
 @test "an add-on on the antenna" {
   run "$BYTEK" preview --addon sun
   assert_success
@@ -99,7 +113,8 @@ setup() {
   local args
   for args in "--colour red" "--state dancing" "--state ../faces/idle" "--addon rocket" \
     "--routine dog:asleep" "--routine cat:due" "--routine dog" "--date 02-30" "--date tomorrow" \
-    "--time 25:00" "--state" "--arg notes.txt" "--addon sun --arg notes.txt" "--charset klingon"; do
+    "--time 25:00" "--state" "--arg notes.txt" "--addon sun --arg notes.txt" "--charset klingon" \
+    "--layout tiny" "--layout"; do
     # shellcheck disable=SC2086 # split into the options on purpose
     run "$BYTEK" preview $args
     assert_failure

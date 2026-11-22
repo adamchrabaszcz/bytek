@@ -114,7 +114,7 @@ refute_controls() {
   run "$BYTEK" preview --state waiting --arg $'allow \033]0;pwned\007 this?\033[2J'
   assert_success
   refute_controls "$output"
-  run "$BYTEK" preview --routine dog:overdue --name $'R\033[31mex\302\233'
+  run "$BYTEK" preview --routine dog:overdue --time 12:00 --name $'R\033[31mex\302\233'
   assert_success
   refute_controls "$output"
 }
