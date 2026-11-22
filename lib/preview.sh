@@ -4,7 +4,7 @@
 # flags, a gallery: each state, each add-on and each companion's routine stages; with --state,
 # --addon or --routine, that one combination. It renders into a temp BYTEK_HOME of its own
 # (bin/bytek makes it), so the real state, add-on, routines and names are never read or changed.
-# Needs: clock, state, addon, routines, companions, render; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, die.
+# Needs: clock, state, charset, addon, routines, companions, render; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, die.
 
 PREVIEW_STAGES="heads_up due overdue"
 PREVIEW_LEAD=5 # minutes between the preview's time and a routine's, for heads_up and overdue
@@ -109,9 +109,9 @@ preview_time() {
 }
 
 # bytek preview [--state S] [--arg TEXT] [--addon A] [--routine COMPANION:STAGE] [--name NAME]
-#               [--time HH:MM] [--date MM-DD] [--width N]
+#               [--time HH:MM] [--date MM-DD] [--width N] [--charset unicode|ascii]
 preview_run() {
-  local state="" arg="" addon="" routine="" name="" time="" date="" width="" f s companion one=""
+  local state="" arg="" addon="" routine="" name="" time="" date="" width="" charset="" f s companion one=""
   while [ $# -gt 0 ]; do
     [ $# -ge 2 ] || die "$1 needs a value (see: bytek help)"
     case "$1" in
@@ -123,6 +123,7 @@ preview_run() {
       --time) time=$2 ;;
       --date) date=$2 ;;
       --width) width=$2 ;;
+      --charset) charset=$2 ;;
       *) die "unknown option: $1 (see: bytek help)" ;;
     esac
     shift 2
@@ -144,6 +145,8 @@ preview_run() {
     unset COLUMNS # the render cuts to COLUMNS; a preview shows everything unless asked
   fi
   preview_time "$date" "$time"
+  # The charset goes to the temp home's config, where every render reads it.
+  [ -z "$charset" ] || charset_set "$charset"
   # A name goes to every companion: the preview shows the named texts wherever there are some.
   if [ -n "$name" ]; then
     for f in "$BYTEK_ROOT"/companions/*; do companions_set "${f##*/}" "$name"; done

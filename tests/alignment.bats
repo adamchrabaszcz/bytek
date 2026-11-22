@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
 # The art stays straight: every data file uses single-width characters only, faces are 3
-# characters and add-ons 1, and every look in `bytek preview` keeps the box in its columns.
-# Ambiguous-width glyphs (☼ ♡ ᴗ) count as single here; #120 is their fallback.
+# characters and add-ons 1, and every look in `bytek preview` keeps the box in its columns, in
+# the unicode and the ascii charset (every non-ASCII value has its "_ascii" line).
+# Ambiguous-width glyphs (☼ ♡ ᴗ) count as single here; the ascii charset is their fallback.
 
 load helpers
 
@@ -71,30 +72,51 @@ frames_of() {
   [ -z "$problems" ] || fail "characters that aren't one column wide:"$'\n'"$problems"
 }
 
-@test "every face frame is 3 characters, every add-on frame 1" {
-  local f frame problems=""
-  for f in "$ROOT"/faces/*; do
+# Prints a problem for each frame of key $2 in the data files $3... that isn't $1 characters.
+frame_lengths() {
+  local want=$1 key=$2 f frame
+  shift 2
+  for f in "$@"; do
     while IFS= read -r frame; do
-      [ "${#frame}" -eq 3 ] || problems="$problems${f#"$ROOT"/}: '$frame' is ${#frame} characters"$'\n'
-    done < <(frames_of "$f" frames)
+      [ "${#frame}" -eq "$want" ] || printf "%s %s: '%s' is %s characters\n" "${f#"$ROOT"/}" "$key" "$frame" "${#frame}"
+    done < <(frames_of "$f" "$key")
   done
-  for f in "$ROOT"/companions/*; do
-    while IFS= read -r frame; do
-      [ "${#frame}" -eq 3 ] || problems="$problems${f#"$ROOT"/} due_face: '$frame' is ${#frame} characters"$'\n'
-    done < <(frames_of "$f" due_face)
-  done
-  for f in "$ROOT"/addons/*; do
-    while IFS= read -r frame; do
-      [ "${#frame}" -eq 1 ] || problems="$problems${f#"$ROOT"/}: '$frame' is ${#frame} characters"$'\n'
-    done < <(frames_of "$f" frames)
+}
+
+@test "every face frame is 3 characters, every add-on frame 1, in both charsets" {
+  local problems
+  problems=$(
+    frame_lengths 3 frames "$ROOT"/faces/*
+    frame_lengths 3 frames_ascii "$ROOT"/faces/*
+    frame_lengths 3 due_face "$ROOT"/companions/*
+    frame_lengths 3 due_face_ascii "$ROOT"/companions/*
+    frame_lengths 1 frames "$ROOT"/addons/*
+    frame_lengths 1 frames_ascii "$ROOT"/addons/*
+  )
+  [ -z "$problems" ] || fail "$problems"
+}
+
+@test "every non-ASCII value has an _ascii line, and _ascii values are plain ASCII" {
+  local f content line key val problems=""
+  for f in "$ROOT"/faces/* "$ROOT"/addons/* "$ROOT"/companions/*; do
+    content=$'\n'$(cat "$f")
+    while IFS= read -r line; do
+      case "$line" in '' | '#'*) continue ;; esac
+      key=${line%%:*} val=${line#*: }
+      if [[ "$key" == *_ascii ]]; then
+        LC_ALL=C grep -q '[^ -~]' <<<"$val" && problems="$problems${f#"$ROOT"/} $key: not plain ASCII: '$val'"$'\n'
+      elif LC_ALL=C grep -q '[^ -~]' <<<"$val" && [[ "$content" != *$'\n'"${key}_ascii: "* ]]; then
+        problems="$problems${f#"$ROOT"/} $key: '$val' has no ${key}_ascii line"$'\n'
+      fi
+    done <<<"$content"
   done
   [ -z "$problems" ] || fail "$problems"
 }
 
-@test "every look keeps the box in its columns" {
-  local look="" n=0 line row=0 problems=""
-  run "$BYTEK" preview
-  assert_success
+# Checks that every look in preview output $1 has the box's top row $2, sides $3 and bottom
+# row $4 in their columns, with the antenna in column 5.
+check_boxes() {
+  local top=$2 side=$3 bottom=$4 look="" n=0 line row=0 problems=""
   while IFS= read -r line; do
     case "$line" in
       "") row=0 && continue ;;
@@ -103,12 +125,26 @@ frames_of() {
     row=$((row + 1))
     case $row in
       1) [ "${line:0:4}" = "    " ] && [ "${line:4:1}" != " " ] || problems="$problems$look: the antenna isn't in column 5: '$line'"$'\n' ;;
-      2) [ "$line" = " ╭──┴──╮" ] || problems="$problems$look: the top isn't ' ╭──┴──╮': '$line'"$'\n' ;;
-      3) [ "${line:0:3}" = " │ " ] && [ "${line:6:2}" = " │" ] || problems="$problems$look: the face row is off: '$line'"$'\n' ;;
-      4) [ "${line:0:8}" = " ╰─┬─┬─╯" ] || problems="$problems$look: the bottom isn't ' ╰─┬─┬─╯': '$line'"$'\n' ;;
+      2) [ "$line" = "$top" ] || problems="$problems$look: the top isn't '$top': '$line'"$'\n' ;;
+      3) [ "${line:0:3}" = " $side " ] && [ "${line:6:2}" = " $side" ] || problems="$problems$look: the face row is off: '$line'"$'\n' ;;
+      4) [ "${line:0:8}" = "$bottom" ] || problems="$problems$look: the bottom isn't '$bottom': '$line'"$'\n' ;;
       *) problems="$problems$look: more than 4 rows"$'\n' ;;
     esac
-  done <<<"$output"
+  done <<<"$1"
   [ "$n" -gt 20 ] || fail "only $n looks in the preview"
   [ -z "$problems" ] || fail "$problems"
+}
+
+@test "every look keeps the box in its columns" {
+  local out
+  out=$("$BYTEK" preview) || fail "bytek preview failed"
+  check_boxes "$out" " ╭──┴──╮" "│" " ╰─┬─┬─╯"
+}
+
+@test "every look keeps the box in its columns in ascii, and is plain ASCII" {
+  local out
+  out=$("$BYTEK" preview --charset ascii) || fail "bytek preview --charset ascii failed"
+  check_boxes "$out" " .--+--." "|" " '-+-+-'"
+  LC_ALL=C grep -n '[^ -~]' <<<"$out" && fail "non-ASCII characters in the ascii preview"
+  return 0
 }

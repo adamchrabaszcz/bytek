@@ -1,5 +1,6 @@
 # Needs the user (permission, question). The ? bounces.
 frames: ◕ᴗ◕
+frames_ascii: O_O
 thought: ?| ?
 status: needs you
 detail: {arg}

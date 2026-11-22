@@ -1,6 +1,10 @@
 # A page for the end of the day's summary.
 icon: [≡]
+icon_ascii: [=]
 due: [≡]
+due_ascii: [=]
 due_text: write today's summary?
 due_face: ◕ᴗ◕
+due_face_ascii: O_O
 overdue: [≡]
+overdue_ascii: [=]

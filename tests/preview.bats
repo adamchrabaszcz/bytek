@@ -50,6 +50,14 @@ setup() {
   assert_output --partial "▰▰▰▱▱ 3/5"
 }
 
+@test "the ascii charset, without changing the real one" {
+  run "$BYTEK" preview --state testing --charset ascii
+  assert_success
+  assert_line --index 1 " .--+--."
+  assert_output --partial "###-- 3/5"
+  assert_equal "$("$BYTEK" charset)" unicode
+}
+
 @test "an add-on on the antenna" {
   run "$BYTEK" preview --addon sun
   assert_success
@@ -91,7 +99,7 @@ setup() {
   local args
   for args in "--colour red" "--state dancing" "--state ../faces/idle" "--addon rocket" \
     "--routine dog:asleep" "--routine cat:due" "--routine dog" "--date 02-30" "--date tomorrow" \
-    "--time 25:00" "--state" "--arg notes.txt" "--addon sun --arg notes.txt"; do
+    "--time 25:00" "--state" "--arg notes.txt" "--addon sun --arg notes.txt" "--charset klingon"; do
     # shellcheck disable=SC2086 # split into the options on purpose
     run "$BYTEK" preview $args
     assert_failure

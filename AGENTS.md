@@ -64,7 +64,7 @@ CI (`.github/workflows/test.yml`) runs lint and the tests on Linux and on macOS 
 - **Outside text is untrusted:** hook fields, command-line text and caches go through the control-character filter (`lib/hook-fields.jq`, `state_write`); new inputs get a case in `tests/security.bats`.
 - **Shell options:** every script declares `set ±o errexit ±o nounset ±o pipefail` before its first command (`tests/shell-options.bats`).
 - **jq programs** longer than one line live in `lib/*.jq`.
-- **Art:** single-width characters only, no emoji; faces are exactly 3 characters; the antenna stick sits in column 5. One data file per face, outfit or companion; new art shouldn't need an engine change.
+- **Art:** single-width characters only, no emoji; faces are exactly 3 characters; the antenna stick sits in column 5; a value that isn't plain ASCII gets a `<key>_ascii` line (`tests/alignment.bats`). One data file per face, outfit or companion; new art shouldn't need an engine change.
 - **GitHub Actions** are pinned to a full commit SHA with the version in a comment.
 
 ## Decisions and patterns

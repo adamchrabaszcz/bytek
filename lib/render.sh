@@ -2,13 +2,40 @@
 # shellcheck disable=SC2154 # S_<key> comes from lib/state.sh (state_load)
 # render: draws the status line from a session's state and its face file. This is the render
 # path: local files only, no jq, as few subprocesses as possible (50 ms budget).
-# Needs: clock, state, addon, routines, companions, away; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
+# Needs: clock, state, charset, addon, routines, companions, away; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
+# The render's own glyphs, in the unicode charset; render_ascii swaps in the ascii ones.
 RENDER_SPINNER="◜|◝|◞|◟"
-RENDER_REMINDER_ICON="◷"                       # before a routine's reminder when no companion stands in for it (companions/)
+RENDER_REMINDER_ICON="◷" # before a routine's reminder when no companion stands in for it (companions/)
+RENDER_BAR_ON="▰"
+RENDER_BAR_OFF="▱"
+RENDER_CUT="…"   # ends text cut to the terminal's width
+RENDER_SEP=" · " # between a routine's reminder and the work status
+RENDER_TOP=" ╭──┴──╮"
+RENDER_SIDE="│"
+RENDER_BOTTOM=" ╰─┬─┬─╯"
+RENDER_LEASH_TOP="╮" # the leash, from the box's right edge down to the companion
+RENDER_LEASH_BOTTOM="╰"
+
 RENDER_SLEEP_AFTER="${BYTEK_SLEEP_AFTER:-600}" # seconds of inactivity before Bytek falls asleep
 RENDER_FACE_FORMAT=1                           # the newest face file format this version reads (docs/architecture/data-files.md)
 RENDER_COMPANION_FORMAT=1                      # the newest companion file format this version reads
+
+# Swaps the render's glyphs for plain ASCII ones (the ascii charset, lib/charset.sh). The
+# spinner has no "|": that separates frames.
+render_ascii() {
+  RENDER_SPINNER="/|-|\\" RENDER_REMINDER_ICON="(!)" RENDER_BAR_ON="#" RENDER_BAR_OFF="-"
+  RENDER_CUT="..." RENDER_SEP=" - "
+  RENDER_TOP=" .--+--." RENDER_SIDE="|" RENDER_BOTTOM=" '-+-+-'"
+  RENDER_LEASH_TOP="\\" RENDER_LEASH_BOTTOM="\\"
+}
+
+# Sets REPLY to text $1 with the non-ASCII marks Bytek itself writes (hooks: "3 changes ·
+# lib/x.sh", "✓ tests passed") in ASCII. Text from elsewhere, like file names, stays as it is.
+render_ascii_text() {
+  REPLY=${1//·/-}
+  REPLY=${REPLY//✓/+}
+}
 
 # Splits a "a|b|c" frame list and sets REPLY to the element for tick $2.
 # Leading spaces inside a frame are kept (used for bouncing marks).
@@ -27,13 +54,16 @@ render_pick() {
 }
 
 # Reads "key: value" lines from face file $1 into F_frames, F_thought, F_status, F_detail and
-# F_format (empty when the file declares none, which means format 1).
+# F_format (empty when the file declares none, which means format 1); in the ascii charset,
+# a "<key>_ascii" line wins over its plain one (lib/charset.sh).
 render_face() {
   F_frames="" F_thought="" F_status="" F_detail="" F_format=""
   local line key val
+  charset_start
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in '' | '#'*) continue ;; esac
-    key=${line%%:*}
+    charset_key "${line%%:*}" || continue
+    key=$REPLY
     val=${line#*:}
     val=${val# }
     case "$key" in
@@ -45,15 +75,18 @@ render_face() {
 # Reads companion file $1 (companions/<name>, docs/architecture/data-files.md) into C_icon,
 # C_due, C_due_text, C_due_face, C_due_thought, C_leash, C_overdue, C_overdue_text, and the
 # variants used when the companion has a name: C_heads_up_named, C_due_named, C_overdue_named.
-# Returns 1, with nothing set, when the file is missing or in a newer format than this Bytek reads.
+# In the ascii charset, a "<key>_ascii" line wins over its plain one. Returns 1, with nothing
+# set, when the file is missing or in a newer format than this Bytek reads.
 render_companion() {
   local line key val format=1
   C_icon="" C_due="" C_due_text="" C_due_face="" C_due_thought="" C_leash="" C_overdue="" C_overdue_text=""
   C_heads_up_named="" C_due_named="" C_overdue_named=""
   [ -f "$1" ] || return 1
+  charset_start
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in '' | '#'*) continue ;; esac
-    key=${line%%:*}
+    charset_key "${line%%:*}" || continue
+    key=$REPLY
     val=${line#*:}
     val=${val# }
     case "$key" in
@@ -95,29 +128,29 @@ render_bar() {
   if [[ "$1" =~ ^[0-9]+/[0-9]+$ ]] && [ "$m" -gt 0 ]; then
     filled=$((n * 5 / m))
     for i in 0 1 2 3 4; do
-      if [ "$i" -lt "$filled" ]; then bar="${bar}▰"; else bar="${bar}▱"; fi
+      if [ "$i" -lt "$filled" ]; then bar="${bar}${RENDER_BAR_ON}"; else bar="${bar}${RENDER_BAR_OFF}"; fi
     done
     REPLY="$bar $n/$m"
   else
     for i in 0 1 2 3 4; do
-      if [ "$i" -eq $(($2 % 5)) ]; then bar="${bar}▰"; else bar="${bar}▱"; fi
+      if [ "$i" -eq $(($2 % 5)) ]; then bar="${bar}${RENDER_BAR_ON}"; else bar="${bar}${RENDER_BAR_OFF}"; fi
     done
     REPLY="$bar"
   fi
 }
 
-# Sets REPLY to $1 cut to $2 characters, ending in "…" when cut.
+# Sets REPLY to $1 cut to $2 characters, ending in RENDER_CUT ("…") when cut.
 render_cut() {
   # Without a UTF-8 locale lengths are bytes: cutting could split a character, so don't.
   if [ -z "$2" ] || [ "$BYTEK_UTF8" != 1 ] || [ "${#1}" -le "$2" ]; then
     REPLY=$1
     return
   fi
-  if [ "$2" -le 1 ]; then
+  if [ "$2" -le "${#RENDER_CUT}" ]; then
     REPLY=""
     return
   fi
-  REPLY="${1:0:$(($2 - 1))}…"
+  REPLY="${1:0:$(($2 - ${#RENDER_CUT}))}$RENDER_CUT"
 }
 
 # While a routine clears on idle (lib/away.sh), starts `bytek away` in the background when a
@@ -150,6 +183,9 @@ render_line() {
   fi
   tick=$now
 
+  charset_load
+  [ "$CHARSET" = ascii ] && render_ascii
+
   state_file="$BYTEK_HOME/state/$session"
   [ -f "$state_file" ] || state_file="$BYTEK_HOME/state/default"
   state_load "$state_file"
@@ -177,7 +213,7 @@ render_line() {
   detail=${S_detail:-$F_detail}
   case "$detail" in *'{spin}'*)
     render_pick "$RENDER_SPINNER" "$tick"
-    detail=${detail//\{spin\}/$REPLY}
+    detail=${detail//\{spin\}/"$REPLY"} # quoted: the ascii spinner has a "\"
     ;;
   esac
   case "$detail" in *'{progress}'*)
@@ -237,8 +273,17 @@ render_line() {
         reminder="$RENDER_REMINDER_ICON $text"
       fi
       [ "$ROUTINES_MORE" -gt 0 ] && reminder="$reminder +$ROUTINES_MORE"
-      status="$reminder${status:+ · $status}"
+      status="$reminder${status:+$RENDER_SEP$status}"
     fi
+  fi
+
+  if [ "$CHARSET" = ascii ]; then
+    render_ascii_text "$status"
+    status=$REPLY
+    render_ascii_text "$detail"
+    detail=$REPLY
+    render_ascii_text "$reminder"
+    reminder=$REPLY
   fi
 
   # The bot and its gaps take 10 columns; keep the text inside the terminal. Cutting from the
@@ -261,16 +306,16 @@ render_line() {
   addon_load
   render_pick "$ADDON_FRAMES" "$tick"
   printf '\033[0m    %s%s\n' "$REPLY" "${thought:+ $thought}"
-  printf '\033[0m ╭──┴──╮\n'
+  printf '\033[0m%s\n' "$RENDER_TOP"
   if [ -n "$leash" ]; then
     # The companion on a leash: ╮ on the box's right edge, ╰ leading down to it.
-    printf '\033[0m │ %s │╮  %s\n' "$frame" "$status"
-    printf '\033[0m ╰─┬─┬─╯╰%s \033[2m%s\033[0m\n' "$companion" "$detail"
+    printf '\033[0m %s %s %s%s  %s\n' "$RENDER_SIDE" "$frame" "$RENDER_SIDE" "$RENDER_LEASH_TOP" "$status"
+    printf '\033[0m%s%s%s \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$RENDER_LEASH_BOTTOM" "$companion" "$detail"
   elif [ -n "$companion" ]; then
-    printf '\033[0m │ %s │  %s\n' "$frame" "$status"
-    printf '\033[0m ╰─┬─┬─╯ %s \033[2m%s\033[0m\n' "$companion" "$detail"
+    printf '\033[0m %s %s %s  %s\n' "$RENDER_SIDE" "$frame" "$RENDER_SIDE" "$status"
+    printf '\033[0m%s %s \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$companion" "$detail"
   else
-    printf '\033[0m │ %s │  %s\n' "$frame" "$status"
-    printf '\033[0m ╰─┬─┬─╯  \033[2m%s\033[0m\n' "$detail"
+    printf '\033[0m %s %s %s  %s\n' "$RENDER_SIDE" "$frame" "$RENDER_SIDE" "$status"
+    printf '\033[0m%s  \033[2m%s\033[0m\n' "$RENDER_BOTTOM" "$detail"
   fi
 }

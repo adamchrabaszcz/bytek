@@ -161,6 +161,6 @@ Line coverage runs after a merge, in its own workflow (`.github/workflows/covera
 
 - Every character is single-width. No emoji: they are double-width in most terminals and break the box.
 - Faces are exactly 3 characters. The antenna stick `┴` sits in column 5 (counting the leading space as column 1). Anything to the right of the box starts at least one space after it.
-- Prefer characters that are single-width everywhere. East-Asian "ambiguous" characters (`♡ ■ ◎ ♪` and the box drawing set) are fine but need an ASCII fallback once charsets land.
+- Prefer characters that are single-width everywhere. East-Asian "ambiguous" characters (`♡ ■ ◎ ♪` and the box drawing set) are fine, with an ASCII fallback: a `<key>_ascii` line under any line that isn't plain ASCII, same lengths (`frames_ascii: o_o|-_-`, `docs/architecture/data-files.md`). `bin/bytek preview --charset ascii` shows them.
 - Add-on frames are 1 character: they sit on the antenna stick.
 - `tests/alignment.bats` checks every file in `faces/`, `addons/` and `companions/` on its own: no wide, emoji, zero-width or combining characters, and the lengths above. It also renders every look in `bytek preview` and checks that the box stays in its columns. A new art file needs no new test.

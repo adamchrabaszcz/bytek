@@ -1,5 +1,7 @@
 # Finished a task.
 frames: ^ᴗ^|ᵔᴗᵔ
+frames_ascii: ^_^|^-^
 thought: ✧|✦
+thought_ascii: *|+
 status: done
 detail: {arg}
