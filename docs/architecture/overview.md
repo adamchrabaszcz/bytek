@@ -20,14 +20,15 @@ Why it is bash and how its parts are cut: `docs/adr/` (`0002` modules, `0003` ba
 | `lib/clock.sh` | the current time, file name stamps, durations: every `date` goes through it | nothing |
 | `lib/state.sh` | reads, writes and switches a session's state file; its edit list | nothing |
 | `lib/routines.sh` | the user's routines: reads `config/routines`, works out when each happens next; `bytek done` and `skip` | clock |
-| `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | nothing |
+| `lib/charset.sh` | which characters Bytek draws with: unicode, or plain ASCII for terminals that show ambiguous-width glyphs wide; `bytek charset` | nothing |
+| `lib/addon.sh` | the mood antenna: the current add-on and `bytek addon` | charset |
 | `lib/companions.sh` | the names given to companions: reads `config/companions`, and `bytek name` | nothing |
 | `lib/away.sh` | how long the Mac has had no input (ioreg), for routines with `clear idle`; `bytek away` | nothing |
-| `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders | clock, state, addon, routines, companions, away |
+| `lib/render.sh` | draws the status line: frames, face files, progress bar, cutting text, routine reminders, the ascii charset's glyphs | clock, state, charset, addon, routines, companions, away |
 | `lib/hooks.sh` | turns hook events into states; the antenna reminder; the debug log; following plugin updates | clock, state, addon |
 | `lib/settings.sh` | `setup` and `uninstall`: edits `settings.json` | clock |
-| `lib/preview.sh` | `bytek preview`: every state, add-on and routine stage, rendered into a temp home of its own | clock, state, addon, routines, companions, render |
-| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines, companions, away |
+| `lib/preview.sh` | `bytek preview`: every state, add-on and routine stage, rendered into a temp home of its own | clock, state, charset, addon, routines, companions, render |
+| `lib/doctor.sh` | `bytek doctor`: checks an installation, says what to fix; never prints `settings.json` | settings, routines, companions, away, charset |
 
 The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.jq` and `debug-log.jq` to hooks, `setup.jq`, `uninstall.jq`, `original-statusline.jq` and `saved-statusline.jq` to settings.
 
@@ -35,20 +36,21 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 
 | Command | Modules | jq |
 | --- | --- | --- |
-| `bytek render` | locale, clock, state, addon, routines, render | never |
-| `bytek addon` | locale, addon | no |
-| `bytek hook` | locale, clock, state, addon, hooks | if installed |
+| `bytek render` | locale, clock, state, charset, addon, routines, companions, away, render | never |
+| `bytek addon` | locale, charset, addon | no |
+| `bytek charset` | locale, charset | no |
+| `bytek hook` | locale, clock, state, charset, addon, hooks | if installed |
 | `bytek set` | locale, clock, state | no |
-| `bytek preview` | locale, clock, state, addon, routines, companions, away, render, preview | never |
+| `bytek preview` | locale, clock, state, charset, addon, routines, companions, away, render, preview | never |
 | `bytek setup`, `uninstall` | locale, clock, settings | required |
-| `bytek doctor` | locale, clock, settings, routines, doctor | if installed |
+| `bytek doctor` | locale, clock, settings, routines, companions, away, charset, doctor | if installed |
 | `bytek states`, `locale`, `help` | locale | no |
 
 ## Layers
 
 From the bottom up; a module uses only modules below it:
 
-1. **locale, clock**: the environment (locale, time).
+1. **locale, clock, charset**: the environment (locale, time, which characters the terminal shows well).
 2. **state, addon, routines**: shared data: the state file, the mood antenna Claude picks, the user's routines.
 3. **render, hooks, settings**: the jobs; none of them uses another.
 4. **doctor, preview**: doctor checks an installation, using settings to recognise Bytek in `settings.json`; preview draws every look through render.

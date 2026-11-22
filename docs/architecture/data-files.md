@@ -64,6 +64,10 @@ One per state, in the repository; the file name is the state's name (`bytek stat
 
 In `detail`: `{arg}` is the state's `arg`, `{spin}` a spinner, `{progress}` the progress bar. Animation steps change once a second (the tick is the current second). Frames must be exactly 3 single-width characters; `tests/alignment.bats` checks every frame and renders every face (CONTRIBUTING, "Art rules").
 
+## ASCII lines in data files
+
+Face, add-on and companion files can give any key a second line for the ascii charset (`bytek charset ascii`, below): the key with `_ascii` added, in plain ASCII, such as `frames_ascii: o_o|-_-` under `frames: •ᴗ•|-ᴗ-`. In the ascii charset it wins over the plain line, before or after it; in unicode it is skipped. A key without one shows its plain value in both. Every key whose value isn't plain ASCII has one, with the same lengths (`tests/alignment.bats`). Older versions skip keys they don't know, so these lines need no new format version.
+
 ## Add-on file: `addons/<name>`
 
 One per mood antenna add-on, in the repository; the file name is the add-on's name (`bytek addon` lists them, `docs/mood-antenna.md` shows them all). Plain text, `key: value` lines; lines starting with `#` are comments.
@@ -128,6 +132,14 @@ The occurrences cleared with `bytek done <routine>` or `bytek skip <routine>`. P
 
 The last check of how long the Mac has had no keyboard or mouse input, for routines with `clear idle` (`lib/away.sh`). Plain text: `format=1`, `sampled=<seconds since 1970>`, `idle=<seconds without input>`. While such a routine exists and `ioreg` is there, the status line starts `bytek away` in the background when the last check is 10 seconds old, after writing its stamp first so other renders don't start one too. `bytek away` reads `HIDIdleTime` from `ioreg` (it keeps counting while the screen is locked, and prompts sent from another device don't reset it), writes the file, and adds due or overdue `clear idle` occurrences to the cleared file as `idle`. Written with plain `printf`, no temp file, because the render path writes the stamp and starts no programs; a reader that catches it half-written sees no check and starts one more.
 
+## Bytek's own settings: `$BYTEK_HOME/config/bytek`
+
+Written by `bytek charset` (or by hand). One `key = value` per line; lines starting with `#` are comments; lines Bytek doesn't know stay as they are when it writes the file. For now one key:
+
+- **`charset`:** `unicode` (the default) or `ascii`. Some glyphs Bytek draws (`♡ ᴗ • ╭─╮`) are East Asian "ambiguous" width: one column in most terminals, two where "ambiguous characters are wide" is on, which breaks the box. `ascii` draws with plain ASCII instead: the data files' `_ascii` lines (above), and the render's own set (box `.--+--.`, spinner `/ - \`, bar `###--`, `(!)` for a reminder without a companion, `...` where text is cut, ` - ` between texts, and `·` and `✓` from hook texts as `-` and `+`). Any other value reads as `unicode`.
+
+Read on every render. The file has no version line: it's written by people, and a later format keeps reading this one.
+
 ## Files in `$BYTEK_HOME`
 
 | Path | Written by | What |
@@ -141,5 +153,5 @@ The last check of how long the Mac has had no keyboard or mouse input, for routi
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
 | `cleared` | `bytek done`, `bytek skip`, `bytek away` | the cleared reminders (above) |
 | `away` | the status line, `bytek away` | the last idle check (above) |
-| `config/` | the user, `bytek name` | personal settings: `routines` and `companions` (above), and later others (places); each feature documents its file here |
+| `config/` | the user, `bytek name`, `bytek charset` | personal settings: `routines`, `companions` and `bytek` (above), and later others (places); each feature documents its file here |
 | `cache/` | providers | cache files from background providers; none yet (`bounded-contexts.md`) |

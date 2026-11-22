@@ -3,5 +3,6 @@ icon: [$]
 due: [$]
 due_text: file your invoice today
 due_face: ◕ᴗ◕
+due_face_ascii: O_O
 due_thought: !
 overdue: [$]

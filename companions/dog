@@ -1,10 +1,14 @@
 # A dog for walks: on a leash while it's time, waiting by the door when it's late.
 icon: (ᵔᴥᵔ)
+icon_ascii: (^.^)
 due: (ᵔᴥᵔ)~|(ᵔᴥᵔ)
+due_ascii: (^.^)~|(^.^)
 due_text: walk time!
 due_face: ^ᴗ^|ᵔᴗᵔ
+due_face_ascii: ^_^|^-^
 leash: yes
 overdue: (•ᴥ•)?|(•ᴥ•)
+overdue_ascii: (o.o)?|(o.o)
 overdue_text: waiting by the door
 heads_up_named: {name}'s {routine} in {in}
 overdue_named: {name} is waiting by the door

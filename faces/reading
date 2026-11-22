@@ -1,4 +1,6 @@
 # Reading a file; the eyes glance around.
 frames: •ᴗ•|·ᴗ•|•ᴗ·
+frames_ascii: o_o|._o|o_.
 status: reading
 detail: ▸ {arg}
+detail_ascii: > {arg}

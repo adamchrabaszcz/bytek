@@ -6,7 +6,7 @@ load ../helpers
 
 setup() {
   bytek_setup
-  load_module clock state render
+  load_module clock state charset render
 }
 
 @test "a frame is picked by the tick, wrapping around, keeping leading spaces" {
@@ -63,4 +63,24 @@ setup() {
   export BYTEK_UTF8=0
   render_pick_padded "~\\_/|≈\\_/" 0
   assert_equal "[$REPLY]" "[~\\_/]"
+}
+
+@test "in ascii, a face file's _ascii keys win; a file without them keeps its own" {
+  printf 'frames: •ᴗ•\nframes_ascii: o_o\ndetail_ascii: > {arg}\ndetail: ▸ {arg}\nthought: ✎\n' >"$TMP/face"
+  CHARSET=ascii render_face "$TMP/face"
+  assert_equal "$F_frames|$F_detail|$F_thought" "o_o|> {arg}|✎"
+  CHARSET=unicode render_face "$TMP/face"
+  assert_equal "$F_frames|$F_detail|$F_thought" "•ᴗ•|▸ {arg}|✎"
+}
+
+@test "in ascii, the bar, the cut and Bytek's own marks are plain ASCII" {
+  render_ascii
+  render_bar 3/5 0
+  assert_equal "$REPLY" "###-- 3/5"
+  BYTEK_UTF8=1 render_cut "abcdefghij" 6
+  assert_equal "$REPLY" "abc..."
+  BYTEK_UTF8=1 render_cut "abcdefghij" 3
+  assert_equal "$REPLY" ""
+  render_ascii_text "3 changes · lib/ä.sh, ✓ tests passed"
+  assert_equal "$REPLY" "3 changes - lib/ä.sh, + tests passed"
 }

@@ -1,4 +1,5 @@
 # Waiting for a task. Blinks every 6th frame.
 frames: •ᴗ•|•ᴗ•|•ᴗ•|•ᴗ•|•ᴗ•|-ᴗ-
+frames_ascii: o_o|o_o|o_o|o_o|o_o|-_-
 status: ready
 detail: waiting for a task
