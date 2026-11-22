@@ -67,5 +67,10 @@ setup() {
   run charset_set klingon
   assert_failure
   assert_output --partial "unknown charset: klingon (unicode or ascii)"
+  run charset_set "unicode ascii"
+  assert_failure
+  run charset_set ""
+  assert_success
+  assert_output unicode
   [ ! -e "$CHARSET_FILE" ] || fail "the config file was written"
 }

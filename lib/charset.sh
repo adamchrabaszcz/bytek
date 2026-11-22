@@ -58,7 +58,7 @@ charset_set() {
     printf '%s\n' "$CHARSET"
     return 0
   fi
-  case " $CHARSET_NAMES " in *" $1 "*) ;; *) die "unknown charset: $1 (unicode or ascii)" ;; esac
+  [[ "$1" =~ ^[a-z]+$ ]] && [[ " $CHARSET_NAMES " == *" $1 "* ]] || die "unknown charset: $1 (unicode or ascii)"
   if [ -f "$CHARSET_FILE" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
       key=${line%%=*}
