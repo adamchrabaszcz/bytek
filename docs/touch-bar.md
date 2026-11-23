@@ -27,7 +27,6 @@ MTMR replaces the app's part of the Touch Bar. To keep every other app's own con
 [
   {
     "type": "escape",
-    "width": 64,
     "align": "left",
     "matchAppId": "iterm2"
   },
@@ -47,7 +46,7 @@ MTMR replaces the app's part of the Touch Bar. To keep every other app's own con
 - `matchAppId` is a pattern matched against the app's id: `iterm2` matches iTerm2's `com.googlecode.iterm2`, `Terminal` matches Apple's Terminal. `osascript -e 'id of app "iTerm"'` prints an app's id. Leave it out to show Bytek in every app, instead of their own controls.
 - In MTMR's menu, untick **Hide Control Strip** to keep Apple's Control Strip (brightness, volume, Siri) on the right. MTMR's own brightness and volume buttons are then duplicates you can leave out.
 - `refreshInterval` is in seconds: 1 follows Bytek like the status line does, 2 is gentler.
-- The Bytek item has no `width` on purpose: it fits its text, growing and shrinking as Bytek's line changes, with the text starting right after the Escape key. A fixed `width` (in points) keeps it still instead, but centres the text in it, leaving empty room on both sides of a short line. `align` places the item on the left, in the middle (`center`) or on the right of the bar; it doesn't move the text inside the item.
+- No item has a `width`, the Bytek one on purpose: it fits its text, growing and shrinking as Bytek's line changes, with the text starting right after the Escape key. A fixed `width` (in points) keeps it still instead, but centres the text in it, leaving empty room on both sides of a short line. `align` places the item on the left, in the middle (`center`) or on the right of the bar; it doesn't move the text inside the item.
 - `--width` cuts Bytek's line to that many characters, the detail first: 40 leaves room for the Control Strip.
 
 Save in MTMR's editor (⌘S) and the Touch Bar updates. After editing the file by hand, restart MTMR: it doesn't notice the change by itself.
