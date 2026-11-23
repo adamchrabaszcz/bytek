@@ -126,3 +126,18 @@ refute_controls() {
   refute_controls "$output"
   [[ "$output" != *$'\033'* ]] || fail "a code in plain output: $output"
 }
+
+@test "with the box off, a COLUMNS that isn't a number runs nothing and leaves the line whole" {
+  local cols
+  "$BYTEK" set editing lib/x.sh
+  "$BYTEK" config box off
+  for cols in 'a[$(touch '"$TMP"'/pwned)]' abc 80x ' 40'; do
+    COLUMNS=$cols run render
+    assert_success
+    assert_output --partial "editing"
+    assert_output --partial "lib/x.sh"
+    [ ! -e "$TMP/pwned" ] || fail "COLUMNS=$cols ran a command"
+  done
+  COLUMNS=12 run render
+  assert_output --partial "…"
+}

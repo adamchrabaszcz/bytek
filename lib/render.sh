@@ -309,7 +309,9 @@ render_line() {
   local status detail max
   render_state "$1"
   if [ "$CONFIG_box" = off ]; then
-    render_oneline_draw "$COLUMNS"
+    # Only a plain number: COLUMNS comes from the environment, and arithmetic would evaluate
+    # anything else (a[$(cmd)] runs cmd). Without one, the line isn't cut.
+    if [[ "$COLUMNS" =~ ^[0-9]+$ ]]; then render_oneline_draw "$COLUMNS"; else render_oneline_draw ""; fi
     return
   fi
 
