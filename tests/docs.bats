@@ -61,3 +61,14 @@ load helpers
   done
   [ -z "$problems" ] || fail "$problems"
 }
+
+@test "the MTMR preset in docs/touch-bar.md is valid JSON: a bytek line item, every item scoped to an app" {
+  local preset
+  needs_jq
+  preset=$(sed -n '/^```json$/,/^```$/p' "$ROOT/docs/touch-bar.md" | sed '1d;$d')
+  [ -n "$preset" ] || fail "no json block in docs/touch-bar.md"
+  jq -e 'type == "array"' <<<"$preset" >/dev/null || fail "not a JSON list: $preset"
+  jq -e 'any(.[]; .type == "shellScriptTitledButton" and (.source.inline | test("/bin/bytek line")))' <<<"$preset" >/dev/null ||
+    fail "no shellScriptTitledButton running bytek line"
+  jq -e 'all(.[]; .matchAppId | type == "string")' <<<"$preset" >/dev/null || fail "an item without matchAppId"
+}
