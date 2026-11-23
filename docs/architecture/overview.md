@@ -37,6 +37,7 @@ The jq programs in `lib/*.jq` belong to the module that runs them: `hook-fields.
 | Command | Modules | jq |
 | --- | --- | --- |
 | `bytek render` | locale, clock, state, charset, addon, routines, companions, away, render | never |
+| `bytek line` | locale, clock, state, charset, addon, routines, companions, away, render | never |
 | `bytek addon` | locale, charset, addon | no |
 | `bytek charset` | locale, charset | no |
 | `bytek hook` | locale, clock, state, charset, addon, hooks | if installed |
