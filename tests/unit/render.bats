@@ -6,7 +6,7 @@ load ../helpers
 
 setup() {
   bytek_setup
-  load_module clock state charset render
+  load_module clock state config charset render
 }
 
 @test "a frame is picked by the tick, wrapping around, keeping leading spaces" {

@@ -2,7 +2,7 @@
 # shellcheck disable=SC2154 # S_<key> comes from lib/state.sh (state_load)
 # render: draws the status line from a session's state and its face file. This is the render
 # path: local files only, no jq, as few subprocesses as possible (50 ms budget).
-# Needs: clock, state, charset, addon, routines, companions, away; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
+# Needs: clock, state, config, charset, addon, routines, companions, away; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_UTF8.
 
 # The render's own glyphs, in the unicode charset; render_ascii swaps in the ascii ones.
 RENDER_SPINNER="◜|◝|◞|◟"
@@ -228,16 +228,17 @@ render_state() {
 
   # A routine's reminder (lib/routines.sh) goes first in the status, what Claude does after it.
   # With a companion (companions/<icon>), the companion stands next to Bytek, and while due it
-  # may bring its own text, face, thought and a leash.
+  # may bring its own text, face, thought and a leash. The reminders and companions switches
+  # (lib/config.sh) turn either off.
   local text
   R_reminder="" R_overdue="" R_companion="" R_leash=""
-  if [ -f "$ROUTINES_FILE" ]; then
+  if [ "$CONFIG_reminders" != off ] && [ -f "$ROUTINES_FILE" ]; then
     routines_load
     render_away_check
     routines_reminder
     if [ -n "$ROUTINES_TEXT" ]; then
       text=$ROUTINES_TEXT
-      if [ -n "$ROUTINES_SHOWN_ICON" ] && render_companion "$BYTEK_ROOT/companions/$ROUTINES_SHOWN_ICON"; then
+      if [ "$CONFIG_companions" != off ] && [ -n "$ROUTINES_SHOWN_ICON" ] && render_companion "$BYTEK_ROOT/companions/$ROUTINES_SHOWN_ICON"; then
         case "$ROUTINES_STAGE" in
           heads_up) R_companion=$C_icon ;;
           due)
@@ -281,6 +282,7 @@ render_state() {
       R_status="$R_reminder${R_status:+$RENDER_SEP$R_status}"
     fi
   fi
+  [ "$CONFIG_thought" = off ] && R_thought=""
 
   if [ "$CHARSET" = ascii ]; then
     render_ascii_text "$R_status"
@@ -301,10 +303,15 @@ render_bold_overdue() {
   fi
 }
 
-# Prints the four lines of the status line for the session named in status line JSON $1.
+# Prints the four lines of the status line for the session named in status line JSON $1, or
+# the one line (render_oneline_draw, cut to COLUMNS) with the box switch off (lib/config.sh).
 render_line() {
   local status detail max
   render_state "$1"
+  if [ "$CONFIG_box" = off ]; then
+    render_oneline_draw "$COLUMNS"
+    return
+  fi
 
   # The bot and its gaps take 10 columns; keep the text inside the terminal. Cutting from the
   # right shortens the work status first, so the reminder stays readable; the leash takes a
@@ -342,8 +349,13 @@ render_line() {
 # thought. Cut to $2 characters when given, the detail first. With $3 "plain", without the dim
 # and bold codes, for apps that show the text as it is (a Touch Bar app).
 render_oneline() {
-  local head text status rest dim="" off=""
   render_state "$1"
+  render_oneline_draw "$2" "$3"
+}
+
+# Prints the one line from what render_state worked out; $1 and $2 as render_oneline's $2 and $3.
+render_oneline_draw() {
+  local head text status rest dim="" off=""
   head="($R_frame)"
   if [ -n "$R_companion" ]; then
     text=$R_companion
@@ -352,10 +364,10 @@ render_oneline() {
   fi
   text="$R_status${R_detail:+$RENDER_SEP$R_detail}"
   while [[ "$text" == *" " ]]; do text=${text% }; done # a spinner without its {arg}
-  render_cut "$text" "${2:+$(($2 - ${#head} - 1))}"
+  render_cut "$text" "${1:+$(($1 - ${#head} - 1))}"
   # The status is the first part of the cut text, the separator and detail the rest.
   status=${REPLY:0:${#R_status}} rest=${REPLY:${#R_status}}
-  if [ "$3" != plain ]; then
+  if [ "$2" != plain ]; then
     render_bold_overdue "$status"
     status=$REPLY dim=$'\033[2m' off=$'\033[0m'
   fi

@@ -3,7 +3,7 @@
 # hooks: turns Claude Code's hook events into states. Prints nothing itself: stdout from some
 # hooks (UserPromptSubmit, SessionStart) is added to Claude's context, so the one thing meant
 # for it, the antenna reminder, is left in HOOKS_CONTEXT for bin/bytek to print.
-# Needs: clock, state, addon; from bin/bytek: BYTEK_ROOT, BYTEK_HOME.
+# Needs: clock, state, config, addon; from bin/bytek: BYTEK_ROOT, BYTEK_HOME.
 
 # Bytek's own commands Claude runs, alone: "[path/]bytek addon <name>" (the mood antenna),
 # "bytek done|skip <routine>" (clearing a reminder) and
@@ -82,6 +82,9 @@ curious (exploring, debugging) · flow (building, one change after another) · s
 hooks_antenna_context() {
   HOOKS_CONTEXT=""
   [ -e "$BYTEK_HOME/config/antenna-reminders-off" ] && return 0
+  # The antenna switch off (bytek config antenna off): it stays at the default, nothing to set.
+  config_load
+  [ "$CONFIG_antenna" = off ] && return 0
   addon_current
   case "$1" in
     SessionStart) HOOKS_CONTEXT="$HOOKS_ANTENNA_INSTRUCTIONS"$'\n'"Bytek's antenna: $REPLY." ;;

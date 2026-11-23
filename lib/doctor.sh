@@ -2,7 +2,7 @@
 # doctor: `bytek doctor` checks an installation and says what to fix, for people whose Bytek
 # doesn't show up and for bug reports. It reads settings.json only to see whether Bytek is in
 # it, and never prints anything from it (it can hold secrets).
-# Needs: settings (SETTINGS_CMD_RE), routines, companions, away, charset; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
+# Needs: settings (SETTINGS_CMD_RE), routines, companions, away, config, charset; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, BYTEK_SETTINGS,
 # BYTEK_UTF8, and $0 (the bytek it times).
 
 DOCTOR_BUDGET_MS=50 # the render budget (tests/speed.bats)
@@ -29,6 +29,7 @@ doctor_run() {
   doctor_companions
   doctor_away
   doctor_charset
+  doctor_config
   doctor_render_time
   [ "$DOCTOR_PROBLEMS" -eq 0 ]
 }
@@ -165,6 +166,21 @@ doctor_charset() {
     doctor_say ok "charset: ascii (bytek charset unicode switches back)"
   else
     doctor_say ok "charset: unicode (if the box looks broken: bytek charset ascii)"
+  fi
+}
+
+# The parts of Bytek turned off (lib/config.sh): something missing on the status line may be
+# one of them.
+doctor_config() {
+  local s off=""
+  config_load
+  for s in $CONFIG_SWITCHES; do
+    eval "[ \"\$CONFIG_$s\" = off ]" && off="$off${off:+, }$s"
+  done
+  if [ -n "$off" ]; then
+    doctor_say ok "turned off: $off (bytek config <part> on, or bytek config reset)"
+  else
+    doctor_say ok "every part of Bytek is on (bytek config)"
   fi
 }
 

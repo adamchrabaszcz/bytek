@@ -5,7 +5,7 @@ load ../helpers
 
 setup() {
   bytek_setup
-  load_module charset
+  load_module config charset
 }
 
 @test "unicode without a config file" {

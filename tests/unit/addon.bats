@@ -7,7 +7,7 @@ load ../helpers
 
 setup() {
   bytek_setup
-  load_module charset addon
+  load_module config charset addon
 }
 
 @test "the current add-on is the one named in the file, if it exists" {

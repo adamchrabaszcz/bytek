@@ -34,7 +34,9 @@ Running `bytek addon` doesn't change what the status line shows: Bytek's hooks i
 
 ## Turning the reminders off
 
-Create an empty file `~/.claude/bytek/config/antenna-reminders-off` (`touch` it); Bytek's hooks then print nothing at all, and the antenna stays on what you set. To still let Claude pick now and then, add this to your own `CLAUDE.md`:
+To keep the antenna at the default `♡` and stop the reminders: `bytek config antenna off` (or `/bytek config`). `bytek config antenna on` lets Claude pick again.
+
+To stop only the reminders and keep the antenna on whatever was last set, create an empty file `~/.claude/bytek/config/antenna-reminders-off` (`touch` it); Bytek's hooks then print nothing at all, and the antenna stays on what you set. To still let Claude pick now and then, add this to your own `CLAUDE.md`:
 
 ```markdown
 ## Bytek's mood antenna

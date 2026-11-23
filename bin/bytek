@@ -15,6 +15,9 @@
 #        --time HH:MM --date MM-DD --width N --charset unicode|ascii --layout box|line
 #   bytek addon [name]               set the mood antenna; without a name, list them
 #   bytek charset [unicode|ascii]    draw with plain ASCII, for terminals that show ♡ ᴗ ╭ wide
+#   bytek config [<part> [on|off] | reset]
+#                                    turn parts of Bytek on or off (box, antenna, thought, companions,
+#                                    reminders; all on by default); without arguments, list them
 #   bytek name [companion [Name]]    name a companion (bytek name dog Rex); without a name, remove it
 #   bytek done <routine>             clear the routine's reminder: the one showing, else the next today
 #   bytek skip <routine>             the same, as skipped
@@ -135,7 +138,7 @@ cmd_states() {
   for f in "$BYTEK_ROOT"/faces/*; do printf '%s\n' "${f##*/}"; done
 }
 
-usage() { sed -n '2,28s/^# \{0,1\}//p' "$0"; }
+usage() { sed -n '2,31s/^# \{0,1\}//p' "$0"; }
 
 case "${1:-}" in
   render)
@@ -143,6 +146,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/state.sh
     . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     # shellcheck source=lib/addon.sh
@@ -163,6 +168,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/state.sh
     . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     # shellcheck source=lib/addon.sh
@@ -208,6 +215,8 @@ case "${1:-}" in
     ;;
   addon)
     shift
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     # shellcheck source=lib/addon.sh
@@ -217,9 +226,17 @@ case "${1:-}" in
     ;;
   charset)
     shift
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     charset_set "$1"
+    ;;
+  config)
+    shift
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
+    config_run "$@"
     ;;
   set)
     shift
@@ -241,6 +258,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/state.sh
     . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     # shellcheck source=lib/addon.sh
@@ -262,6 +281,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/clock.sh"
     # shellcheck source=lib/state.sh
     . "$BYTEK_LIB/state.sh"
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     # shellcheck source=lib/addon.sh
@@ -281,6 +302,8 @@ case "${1:-}" in
     . "$BYTEK_LIB/companions.sh"
     # shellcheck source=lib/away.sh
     . "$BYTEK_LIB/away.sh"
+    # shellcheck source=lib/config.sh
+    . "$BYTEK_LIB/config.sh"
     # shellcheck source=lib/charset.sh
     . "$BYTEK_LIB/charset.sh"
     # shellcheck source=lib/doctor.sh
