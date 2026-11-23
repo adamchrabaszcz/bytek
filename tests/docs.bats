@@ -62,7 +62,7 @@ load helpers
   [ -z "$problems" ] || fail "$problems"
 }
 
-@test "the MTMR preset in docs/touch-bar.md is valid JSON: a bytek line item, every item scoped to an app" {
+@test "the MTMR preset in docs/touch-bar.md is valid JSON: a bytek line item without a fixed width, every item scoped to an app" {
   local preset
   needs_jq
   preset=$(sed -n '/^```json$/,/^```$/p' "$ROOT/docs/touch-bar.md" | sed '1d;$d')
@@ -70,5 +70,8 @@ load helpers
   jq -e 'type == "array"' <<<"$preset" >/dev/null || fail "not a JSON list: $preset"
   jq -e 'any(.[]; .type == "shellScriptTitledButton" and (.source.inline | test("/bin/bytek line")))' <<<"$preset" >/dev/null ||
     fail "no shellScriptTitledButton running bytek line"
+  # A fixed width centres a short line in empty room: the Bytek item fits its text.
+  jq -e 'all(.[]; if .type == "shellScriptTitledButton" and (.source.inline | test("/bin/bytek line")) then has("width") | not else true end)' <<<"$preset" >/dev/null ||
+    fail "the bytek line item has a fixed width"
   jq -e 'all(.[]; .matchAppId | type == "string")' <<<"$preset" >/dev/null || fail "an item without matchAppId"
 }
