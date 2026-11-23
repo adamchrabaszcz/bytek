@@ -41,6 +41,20 @@ git clone https://github.com/adamchrabaszcz/bytek && cd bytek
 
 This copies Bytek to `~/.claude/bytek/app` and adds the status line and hooks to your settings (backed up first).
 
+## Settings
+
+Every part of Bytek is on by default. `/bytek config` in Claude Code shows them as a checklist: untick what you don't want, and the status line follows from its next refresh. From a terminal, `bytek config` lists them, and `bytek config thought off` or `bytek config reset` change them.
+
+| Part | Off |
+| --- | --- |
+| `box` | Bytek on one line: `(≧ᴗ≦) editing · ◜ api.ts` |
+| `antenna` | the antenna stays at `♡`, and Claude no longer changes it |
+| `thought` | no thought bubble |
+| `companions` | routine reminders as text, without the companion |
+| `reminders` | no routine reminders on the status line |
+
+`bytek preview --off box` shows a look before you pick it.
+
 ## When something looks wrong
 
 `bytek doctor` (or `/bytek doctor` in Claude Code) checks the setup: jq, the locale, whether the status line and the hooks run Bytek, the state folder and how long a render takes. Each line says `ok`, `warning` or `problem`, with what to do; it shows nothing from your settings. Paste its output into a bug report.

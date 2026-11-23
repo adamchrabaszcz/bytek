@@ -134,11 +134,19 @@ The last check of how long the Mac has had no keyboard or mouse input, for routi
 
 ## Bytek's own settings: `$BYTEK_HOME/config/bytek`
 
-Written by `bytek charset` (or by hand). One `key = value` per line; lines starting with `#` are comments; lines Bytek doesn't know stay as they are when it writes the file. For now one key:
+Written by `bytek charset` and `bytek config` (or by hand), read through `lib/config.sh`. One `key = value` per line; lines starting with `#` are comments; lines Bytek doesn't know stay as they are when it writes the file. The keys:
 
 - **`charset`:** `unicode` (the default) or `ascii`. Some glyphs Bytek draws (`♡ ᴗ • ╭─╮`) are East Asian "ambiguous" width: one column in most terminals, two where "ambiguous characters are wide" is on, which breaks the box. `ascii` draws with plain ASCII instead: the data files' `_ascii` lines (above), and the render's own set (box `.--+--.`, spinner `/ - \`, bar `###--`, `(!)` for a reminder without a companion, `...` where text is cut, ` - ` between texts, and `·` and `✓` from hook texts as `-` and `+`). Any other value reads as `unicode`.
+- **The switches,** one per part of Bytek, all on by default: a switch is off only when its line says `off`, and a missing line (or any other value) is on. `bytek config <part> on` removes the line, `bytek config reset` removes every switch's line and keeps the rest.
+  - **`box`:** off, the status line is the one-line layout (`render_oneline`), cut to the window.
+  - **`antenna`:** off, the antenna shows the default add-on (`heart`) whatever was picked, and the hooks stop the antenna reminders to Claude.
+  - **`thought`:** off, no thought bubble next to the antenna (a companion's due thought included).
+  - **`companions`:** off, a routine's reminder shows as text with `◷`, without the companion, its face or its leash.
+  - **`reminders`:** off, no routine reminders on the status line.
 
-Read on every render. The file has no version line: it's written by people, and a later format keeps reading this one.
+  A new part (outfits, skins, the info column) adds its switch to `CONFIG_SWITCHES` and to the `/bytek config` checklist (`commands/bytek.md`), and documents it here.
+
+Read on every render, once. The file has no version line: it's written by people, and a later format keeps reading this one.
 
 ## Files in `$BYTEK_HOME`
 
@@ -153,5 +161,5 @@ Read on every render. The file has no version line: it's written by people, and 
 | `hooks.log` | hooks | one trimmed JSON line per hook event: no prompts or file contents, user-readable only, cut to half past `BYTEK_DEBUG_LOG_MAX` bytes (1 MB) |
 | `cleared` | `bytek done`, `bytek skip`, `bytek away` | the cleared reminders (above) |
 | `away` | the status line, `bytek away` | the last idle check (above) |
-| `config/` | the user, `bytek name`, `bytek charset` | personal settings: `routines`, `companions` and `bytek` (above), and later others (places); each feature documents its file here |
+| `config/` | the user, `bytek name`, `bytek charset`, `bytek config` | personal settings: `routines`, `companions` and `bytek` (above), and later others (places); each feature documents its file here |
 | `cache/` | providers | cache files from background providers; none yet (`bounded-contexts.md`) |

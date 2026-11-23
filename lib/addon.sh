@@ -3,7 +3,7 @@
 # to show the session's vibe (docs/mood-antenna.md); the current one's name is in
 # $BYTEK_HOME/addon, the add-ons themselves in addons/<name>. On the render path: plain file
 # reads only, no subprocess.
-# Needs: charset; from bin/bytek: BYTEK_ROOT, BYTEK_HOME, die (addon_set).
+# Needs: charset (and through it config's CONFIG_antenna); from bin/bytek: BYTEK_ROOT, BYTEK_HOME, die (addon_set).
 
 ADDON_DEFAULT=heart
 ADDON_FALLBACK="♡"     # when even the default add-on file is missing
@@ -49,9 +49,12 @@ addon_read() {
   fi
 }
 
-# Sets ADDON_FRAMES to the current add-on's frames, or the fallback heart.
+# Sets ADDON_FRAMES to the current add-on's frames, or the fallback heart. With the antenna
+# switch off (lib/config.sh), the default add-on, whatever was picked.
 addon_load() {
   addon_current
+  # shellcheck disable=SC2154 # CONFIG_antenna comes from lib/config.sh, loaded by charset_load
+  [ "$CONFIG_antenna" = off ] && REPLY=$ADDON_DEFAULT
   addon_read "$BYTEK_ROOT/addons/$REPLY"
   if [ -z "$ADDON_FRAMES" ]; then
     if [ "$CHARSET" = ascii ]; then ADDON_FRAMES=$ADDON_FALLBACK_ASCII; else ADDON_FRAMES=$ADDON_FALLBACK; fi

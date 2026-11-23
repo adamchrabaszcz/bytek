@@ -8,7 +8,7 @@ load helpers
 setup() {
   bytek_setup
   export TZ=UTC BYTEK_NOW=1764504000 # Sunday 30 November 2025, 12:00 UTC
-  load_module clock state charset addon routines companions away render
+  load_module clock state config charset addon routines companions away render
 }
 
 # Sets routine "walk" with the dog at $1 (HH:MM), for a reminder at 12:00.
